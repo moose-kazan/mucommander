@@ -39,10 +39,11 @@ import com.mucommander.commons.file.protocol.FileProtocols;
 import com.mucommander.commons.file.protocol.ProtocolProvider;
 import com.mucommander.commons.file.protocol.local.LocalFile;
 import com.mucommander.commons.file.protocol.local.LocalProtocolProvider;
+import com.mucommander.commons.file.protocol.search.SearchFile;
+import com.mucommander.commons.file.protocol.search.SearchProtocolProvider;
 import com.mucommander.commons.file.util.FilePool;
 import com.mucommander.commons.file.util.PathTokenizer;
 import com.mucommander.commons.file.util.PathUtils;
-import com.mucommander.commons.runtime.JavaVersion;
 import com.mucommander.commons.runtime.OsFamily;
 
 /**
@@ -119,33 +120,8 @@ public class FileFactory {
 
     static {
         // Register built-in file protocols.
-        ProtocolProvider protocolProvider;
         registerProtocol(LocalFile.SCHEMA, new LocalProtocolProvider());
-//        registerProtocol(FileProtocols.SMB, new com.mucommander.commons.file.protocol.smb.SMBProtocolProvider());
-//        registerProtocol(FileProtocols.HTTP, protocolProvider = new com.mucommander.commons.file.protocol.http.HTTPProtocolProvider());
-//        registerProtocol(FileProtocols.HTTPS, protocolProvider);
-//        registerProtocol(FileProtocols.FTP, new com.mucommander.commons.file.protocol.ftp.FTPProtocolProvider());
-//        registerProtocol(FileProtocols.NFS, new com.mucommander.commons.file.protocol.nfs.NFSProtocolProvider());
-//        registerProtocol(FileProtocols.SFTP, new com.mucommander.commons.file.protocol.sftp.SFTPProtocolProvider());
-        if(JavaVersion.JAVA_6.isCurrentOrHigher()) {
-            // Hadoop requires Java 1.6
-//            registerProtocol(FileProtocols.HDFS, new com.mucommander.commons.file.protocol.hadoop.HDFSProtocolProvider());
-//            registerProtocol(FileProtocols.S3, new com.mucommander.commons.file.impl.hadoop.S3ProtocolProvider());
-        }
-//        registerProtocol(FileProtocols.S3, new com.mucommander.commons.file.protocol.s3.S3ProtocolProvider());
-//        registerProtocol(FileProtocols.VSPHERE, new com.mucommander.commons.file.protocol.vsphere.VSphereProtocolProvider());
-
-        // Register built-in archive file formats, order for TarArchiveFile and GzipArchiveFile/Bzip2ArchiveFile is important:
-        // TarArchiveFile must match 'tar.gz'/'tar.bz2' files before GzipArchiveFile/Bzip2ArchiveFile does.
-//        registerArchiveFormat(new com.mucommander.commons.file.archive.zip.ZipFormatProvider());
-//        registerArchiveFormat(new com.mucommander.commons.file.archive.tar.TarFormatProvider());
-//        registerArchiveFormat(new com.mucommander.commons.file.archive.gzip.GzipFormatProvider());
-//        registerArchiveFormat(new com.mucommander.commons.file.archive.bzip2.Bzip2FormatProvider());
-//        registerArchiveFormat(new com.mucommander.commons.file.archive.iso.IsoFormatProvider());
-//        registerArchiveFormat(new com.mucommander.commons.file.archive.ar.ArFormatProvider());
-//        registerArchiveFormat(new com.mucommander.commons.file.archive.lst.LstFormatProvider());
-//        registerArchiveFormat(new com.mucommander.commons.file.archive.rar.RarFormatProvider());
-//        registerArchiveFormat(new com.mucommander.commons.file.archive.sevenzip.SevenZipFormatProvider());
+        registerProtocol(SearchFile.SCHEMA, new SearchProtocolProvider());
 
         // Set the default FileIconProvider instance
         defaultFileIconProvider = new SwingFileIconProvider();
@@ -480,9 +456,13 @@ public class FileFactory {
         // Extract every filename from the path from left to right and for each of them, see if it looks like an archive.
         // If it does, create the appropriate protocol file and wrap it with an archive file.
         while (pt.hasMoreFilenames()) {
+            String filename = pt.nextFilename();
+            if (SearchFile.SCHEMA.equals(protocol))
+                continue;
+
             // Test if the filename's extension looks like a supported archive format...
             // Note that the archive can also be a directory with an archive extension.
-            if (isArchiveFilename(pt.nextFilename())) {
+            if (isArchiveFilename(filename)) {
                 // Remove trailing separator of file, some file protocols such as SFTP don't like trailing separators.
                 // On the contrary, directories without a trailing slash are fine.
                 String currentPath = PathUtils.removeTrailingSeparator(pt.getCurrentPath(), pathSeparator);

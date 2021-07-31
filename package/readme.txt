@@ -35,13 +35,23 @@ New features:
 -
 
 Improvements:
--
+- Mouse clicks on the headers of a file table (e.g., NAME, SIZE, DATE) are better detected.
+- Require non-headless Java when installing from RPM.
+- Use absolute path rather than canonical path in bookmarks to avoid resolving symbolic links.
+- Tar archives with headers in the pax format are now supported.
+- The free space indicator in the status bar is updated right after relevant events like switching to the application.
+- Symbolic links are unpacked from tar archives.
+- The portable version stores preferences files in the installation directory.
 
 Localization:
--
+- Updated Russian translation
 
 Bug fixes:
--
+- Fix installation using GDebi Package Installer
+- Permanent deletion of symbolic links on Windows no longer deletes their linked content.
+- Restore file table configuration (column visibility, width and position) on startup also when custom folders are set.
+- The default keyboard shortcut for packing files (CTRL+I) opens the 'Pack files' dialog on macOS.
+- File search works with search strings that resemble a path to an archive file, e.g., find:///home/*.zip.
 
 Known issues:
 - Mac OS X: "muCommander damaged and cannot be opened" may appear after downloading muCommander from the browser. This

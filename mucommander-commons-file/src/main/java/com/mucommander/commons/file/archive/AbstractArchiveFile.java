@@ -119,8 +119,7 @@ public abstract class AbstractArchiveFile extends ProxyFile {
         archiveEntryFiles = new WeakHashMap<ArchiveEntry, AbstractArchiveEntryFile>();
 
         long start = System.currentTimeMillis();
-        ArchiveEntryIterator entries = getEntryIterator();
-        try {
+        try(ArchiveEntryIterator entries = getEntryIterator()) {
             ArchiveEntry entry;
             while((entry=entries.nextEntry())!=null)
                 treeRoot.addArchiveEntry(entry);
@@ -129,12 +128,6 @@ public abstract class AbstractArchiveFile extends ProxyFile {
 
             this.entryTreeRoot = treeRoot;
             declareEntriesTreeUpToDate();
-        }
-        finally {
-            try { entries.close(); }
-            catch(IOException e) {
-                // Not much we can do about it
-            }
         }
     }
 
@@ -337,16 +330,9 @@ public abstract class AbstractArchiveFile extends ProxyFile {
      * underlying file protocol.
      */
     public AbstractFile getArchiveEntryFile(String entryPath) throws IOException, UnsupportedFileOperationException {
-        // Make sure the entries tree is created and up-to-date
-        checkEntriesTree();
+        DefaultMutableTreeNode entryNode = getArchiveEntryNode(entryPath);
 
-        // Todo: check if that's really necessary / if there is a way to remove this
-        entryPath = entryPath.replace('\\', '/');
-
-        // Find the entry node corresponding to the given path
-        DefaultMutableTreeNode entryNode = entryTreeRoot.findEntryNode(entryPath);
-
-        if(entryNode==null) {
+        if (entryNode==null) {
             int depth = ArchiveEntry.getDepth(entryPath);
 
             AbstractFile parentFile;
@@ -368,6 +354,26 @@ public abstract class AbstractArchiveFile extends ProxyFile {
         }
 
         return getArchiveEntryFile(entryNode);
+    }
+
+    /**
+     * Returns the entry node that corresponds to the given path within the archive file.
+     *
+     * @param entryPath path to an entry within this archive
+     * @return the entry node corresponding to the given path
+     * @throws IOException if neither the entry nor its parent exist within the archive
+     * @throws UnsupportedFileOperationException if {@link FileOperation#READ_FILE} operations are not supported by the
+     * underlying file protocol.
+     */
+    public DefaultMutableTreeNode getArchiveEntryNode(String entryPath) throws IOException, UnsupportedFileOperationException {
+        // Make sure the entries tree is created and up-to-date
+        checkEntriesTree();
+
+        // TODO: check if that's really necessary / if there is a way to remove this
+        entryPath = entryPath.replace('\\', '/');
+
+        // Find the entry node corresponding to the given path
+        return entryTreeRoot.findEntryNode(entryPath);
     }
 
     /**

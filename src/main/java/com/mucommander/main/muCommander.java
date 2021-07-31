@@ -28,6 +28,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.AbstractMap;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
@@ -273,6 +274,11 @@ public class muCommander
 
         configProps.computeIfAbsent(AutoProcessor.AUTO_DEPLOY_DIR_PROPERTY, key -> new File(codeParentFolder, "bundle").getAbsolutePath());
 
+        configProps.computeIfAbsent("mucommander.conf.dir", key -> new File(codeParentFolder, "conf").getAbsolutePath());
+
+        String confDir = configProps.get("mucommander.conf.dir");
+        System.setProperty("logback.configurationFile", new File(confDir, "logback.xml").getAbsolutePath());
+
         configProps.computeIfAbsent("mucommander.app.dir", key -> new File(codeParentFolder, "app").getAbsolutePath());
 
         final String appDir = configProps.get("mucommander.app.dir");
@@ -285,18 +291,26 @@ public class muCommander
         muCommander.copySystemProperties(configProps);
 
         File preferencesFolder;
-        if (configuration.preferences == null) {
-            try {
-                preferencesFolder = UserPreferencesDir.getDefaultPreferencesFolder();
-            } catch(RuntimeException e) {
-                System.err.println("Failed to retrieve default preferences folder: " + e.getMessage());
-                return;
-            }
-        } else {
+        if (configuration.preferences != null) {
             try {
                 preferencesFolder = UserPreferencesDir.getPreferencesFolder(configuration.preferences);
             } catch(RuntimeException e) {
                 System.err.println("Failed to retrieve specified preferences folder: " + configuration.preferences);
+                return;
+            }
+        } else if (new File(codeParentFolder, ".portable").exists()) {
+            String portableDir = new File(codeParentFolder, ".mucommander").getAbsolutePath();
+            try {
+                preferencesFolder = UserPreferencesDir.getPreferencesFolder(portableDir);
+            } catch(RuntimeException e) {
+                System.err.println("Failed to retrieve portable preferences folder: " + portableDir);
+                return;
+            }
+        } else {
+            try {
+                preferencesFolder = UserPreferencesDir.getDefaultPreferencesFolder();
+            } catch(RuntimeException e) {
+                System.err.println("Failed to retrieve default preferences folder: " + e.getMessage());
                 return;
             }
         }
@@ -306,7 +320,12 @@ public class muCommander
         System.setProperty("MUCOMMANDER_USER_PREFERENCES", configuration.preferences);
 
         // Copy configuration provided by command line arguments
-        configProps.putAll(configuration);
+        configProps.putAll(new AbstractMap<String,String>() {
+            @Override
+            public java.util.Set<Map.Entry<String,String>> entrySet() {
+                return configuration.entrySet();
+            }
+        });
 
         // If enabled, register a shutdown hook to make sure the framework is
         // cleanly shutdown when the VM exits.

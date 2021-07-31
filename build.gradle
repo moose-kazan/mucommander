@@ -11,7 +11,7 @@ plugins {
     id 'com.athaydes.osgi-run' version '1.6.0'
     id 'java'
     id 'org.ajoberstar.grgit' version '3.1.1'
-    id 'nebula.ospackage' version '8.3.0'
+    id 'nebula.ospackage' version '8.5.6'
     id 'com.github.johnrengelman.shadow' version '5.1.0'
     id 'edu.sc.seis.macAppBundle' version '2.3.0'
     id 'edu.sc.seis.launch4j' version '2.4.6'
@@ -105,9 +105,6 @@ createBundlesDir.doLast {
        include project(':').jar.archiveName
        into "${buildDir}/osgi"
    }
-}
-
-createOsgiRuntime.doLast {
    copy {
        from "package"
        include "logback.xml"
@@ -121,13 +118,13 @@ runOsgi {
     if (port) {
         javaArgs += ' -Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=' + port
     }
-    javaArgs += ' -Dlogback.configurationFile=conf/logback.xml'
     configSettings = 'felix'
     osgiMain = project(':')
     config += [
         'org.osgi.framework.storage': 'felix-cache',
         'felix.auto.deploy.dir': 'bundle',
         'mucommander.app.dir': 'app',
+        'mucommander.conf.dir': 'conf',
     ]
     wrapInstructions {
         manifest("httpclient.*") {
@@ -214,6 +211,10 @@ ospackage {
         include '*.jar'
         into '/usr/share/mucommander/app'
     }
+    from ("$buildDir/osgi/conf") {
+        include '*'
+        into '/usr/share/mucommander/conf'
+    }
     from ('mucommander-core/src/main/resources/images/mucommander') {
         include 'icon128_24.png'
         rename 'icon128_24.png', 'mucommander.png'
@@ -232,7 +233,7 @@ ospackage {
 // RPM packaging
 buildRpm {
     dependsOn createBundlesDir
-    suggests('java-11-openjdk')
+    requires('java')
     os = LINUX
 }
 
@@ -308,6 +309,7 @@ copyToResourcesJava.doLast {
         from "build/osgi"
         include 'app/**'
         include 'bundle/**'
+        include 'conf/**'
         exclude 'bundle/osgiaas*'
         exclude 'bundle/jline*'
         exclude 'bundle/mucommander-os-linux*'
@@ -391,6 +393,10 @@ task nsis(type: Copy, dependsOn: [createExe, createBundlesDir]) {
         exclude 'mucommander-os-openvms*'
         into "bundle"
     }
+    from("$buildDir/osgi/conf") {
+        include '*'
+        into "conf"
+    }
     into "$buildDir/tmp/nsis"
 }
 
@@ -403,14 +409,17 @@ task portable(dependsOn: [createExe, createBundlesDir], type: Zip) {
         include '*.jar'
     }
     from ('package') { include 'license.txt', 'readme.txt' }
-    from ('package/unix') {
+    def tempDir = File.createTempDir()
+    tempDir.deleteOnExit()
+    from ({ new File(temporaryDir, '.portable').createNewFile(); new File(temporaryDir, 'felix-cache').mkdirs(); temporaryDir }) {
+        include '.portable'
         include 'felix-cache'
         dirMode 0777
     }
     from ('package/unix/mucommander.sh') {
         filter(ReplaceTokens, tokens: [MU_VERSION: project.version])
     }
-    into "muCommander-$archiveVersion"
+    into ""
     from ("$buildDir/osgi/bundle") {
         include '*.jar'
         exclude 'osgiaas*'
@@ -420,6 +429,10 @@ task portable(dependsOn: [createExe, createBundlesDir], type: Zip) {
     from ("$buildDir/osgi/app") {
         include '*.jar'
         into 'app'
+    }
+    from ("$buildDir/osgi/conf") {
+        include '*'
+        into 'conf'
     }
 
     archiveClassifier = 'portable'
@@ -432,14 +445,16 @@ task tgz(dependsOn: createBundlesDir, type: Tar) {
         include '*.jar'
     }
     from ('package') { include 'license.txt', 'readme.txt' }
-    from ('package/unix') {
+    def tempDir = File.createTempDir()
+    tempDir.deleteOnExit()
+    from ({ new File(temporaryDir, 'felix-cache').mkdirs(); temporaryDir }) {
         include 'felix-cache'
         dirMode 0777
     }
     from ('package/unix/mucommander.sh') {
         filter(ReplaceTokens, tokens: [MU_VERSION: project.version])
     }
-    into "."
+    into ""
 
     from ("$buildDir/osgi/bundle") {
         include '*.jar'
@@ -451,8 +466,12 @@ task tgz(dependsOn: createBundlesDir, type: Tar) {
         include '*.jar'
         into 'app'
     }
+    from ("$buildDir/osgi/conf") {
+        include '*'
+        into 'conf'
+    }
 
-    archiveExtension = 'tar.gz'
+    archiveExtension = 'tgz'
     compression = Compression.GZIP
     archiveVersion = project.version+'-'+project.ext.release
 }

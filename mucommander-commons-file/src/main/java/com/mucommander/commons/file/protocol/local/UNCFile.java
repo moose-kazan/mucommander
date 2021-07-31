@@ -36,7 +36,6 @@ import com.mucommander.commons.file.util.Kernel32API;
 import com.mucommander.commons.file.util.PathUtils;
 import com.mucommander.commons.io.RandomAccessInputStream;
 import com.mucommander.commons.io.RandomAccessOutputStream;
-import com.mucommander.commons.runtime.JavaVersion;
 import com.mucommander.commons.runtime.OsVersion;
 
 /**
@@ -65,15 +64,8 @@ public class UNCFile extends ProtocolFile {
     // Note: 'read' and 'execute' permissions have no meaning under Windows (files are either read-only or
     // read-write) and as such can't be changed.
 
-    /** Changeable permissions mask for Java 1.6 and up, on Windows OS (any version) */
-    private static PermissionBits CHANGEABLE_PERMISSIONS_JAVA_6_WINDOWS = new GroupedPermissionBits(128);   // -w------- (200 octal)
-
-    /** Changeable permissions mask for Java 1.5 or below */
-    private static PermissionBits CHANGEABLE_PERMISSIONS_JAVA_5 = PermissionBits.EMPTY_PERMISSION_BITS;   // --------- (0)
-
     /** Bit mask that indicates which permissions can be changed */
-    private final static PermissionBits CHANGEABLE_PERMISSIONS = JavaVersion.JAVA_6.isCurrentOrHigher()
-            ?CHANGEABLE_PERMISSIONS_JAVA_6_WINDOWS:CHANGEABLE_PERMISSIONS_JAVA_5;
+    private final static PermissionBits CHANGEABLE_PERMISSIONS = new GroupedPermissionBits(128);   // -w------- (200 octal)
     
 	/**
      * Creates a new instance of UNCFile and a corresponding {@link File} instance.
@@ -196,8 +188,8 @@ public class UNCFile extends ProtocolFile {
 
     @Override
     public void changePermission(PermissionAccess access, PermissionType permission, boolean enabled) throws IOException {
-        // Only the 'user' permissions under Java 1.6 are supported
-        if(access!=PermissionAccess.USER || JavaVersion.JAVA_6.isCurrentLower())
+        // Only the 'user' permissions are supported
+        if(access!=PermissionAccess.USER)
             throw new IOException();
 
         boolean success = false;
@@ -360,17 +352,7 @@ public class UNCFile extends ProtocolFile {
         if(!getRoot().equals(destFile.getRoot()))
         	throw new IOException();
 
-        // Windows 9x or Windows Me: Kernel32's MoveFileEx function is NOT available
-        if(OsVersion.WINDOWS_ME.isCurrentOrLower()) {
-        	// The destination file is deleted before calling java.io.File#renameTo().
-        	// Note that in this case, the atomicity of this method is not guaranteed anymore -- if
-        	// java.io.File#renameTo() fails (for whatever reason), the destination file is deleted anyway.
-        	if(destFile.exists())
-        		if(!destJavaIoFile.delete())
-        			throw new IOException();
-        }
-        // Windows NT: Kernel32's MoveFileEx can be used, if the Kernel32 DLL is available.
-        else if(Kernel32.isAvailable()) {
+        if(Kernel32.isAvailable()) {
         	// Note: MoveFileEx is always used, even if the destination file does not exist, to avoid having to
         	// call #exists() on the destination file which has a cost.
         	if(!Kernel32.getInstance().MoveFileEx(absPath, destFile.getAbsolutePath(),
@@ -578,15 +560,7 @@ public class UNCFile extends ProtocolFile {
         // Note: 'read' and 'execute' permissions have no meaning under Windows (files are either read-only or
         // read-write), but we return default values.
 
-        /** Mask for supported permissions under Java 1.6 */
-        private static PermissionBits JAVA_6_PERMISSIONS = new GroupedPermissionBits(448);   // rwx------ (700 octal)
-
-        /** Mask for supported permissions under Java 1.5 */
-        private static PermissionBits JAVA_5_PERMISSIONS = new GroupedPermissionBits(384);   // rw------- (300 octal)
-
-        private final static PermissionBits MASK = JavaVersion.JAVA_6.isCurrentOrHigher()
-                ?JAVA_6_PERMISSIONS
-                :JAVA_5_PERMISSIONS;
+        private final static PermissionBits MASK = new GroupedPermissionBits(448);   // rwx------ (700 octal);
 
         private UNCFilePermissions(java.io.File file) {
             this.file = file;
@@ -603,8 +577,7 @@ public class UNCFile extends ProtocolFile {
             case WRITE:
             	return file.canWrite();
             case EXECUTE:
-            	if (JavaVersion.JAVA_6.isCurrentOrHigher())
-                    return file.canExecute();
+                return file.canExecute();
             default:
             	return false;
             }

@@ -27,7 +27,6 @@ import com.mucommander.commons.conf.ConfigurationListener;
 import com.mucommander.commons.conf.ValueList;
 import com.mucommander.commons.conf.XmlConfigurationReader;
 import com.mucommander.commons.conf.XmlConfigurationWriter;
-import com.mucommander.commons.runtime.JavaVersion;
 import com.mucommander.commons.runtime.OsFamily;
 
 /**
@@ -80,10 +79,9 @@ public class MuPreferences implements MuPreferencesAPI {
 	/** Controls whether system notifications are enabled. */
 	public static final String  ENABLE_SYSTEM_NOTIFICATIONS       = "enable_system_notifications";
 	/** System notifications are enabled by default on platforms where a notifier is available and works well enough.
-	 * In particular, the system tray notifier is available under Linux+Java 1.6, but it doesn't work well so it is not
+	 * In particular, the system tray notifier is available under Linux, but it doesn't work well so it is not
 	 * enabled by default. */
-	public static final boolean DEFAULT_ENABLE_SYSTEM_NOTIFICATIONS = OsFamily.MAC_OS.isCurrent() ||
-			(OsFamily.WINDOWS.isCurrent() && JavaVersion.JAVA_6.isCurrentOrHigher());
+	public static final boolean DEFAULT_ENABLE_SYSTEM_NOTIFICATIONS = OsFamily.MAC_OS.isCurrent() || OsFamily.WINDOWS.isCurrent();
 	/** List of encodings that are displayed in encoding selection components. */
 	public static final String  PREFERRED_ENCODINGS               = "preferred_encodings";
 
@@ -245,13 +243,6 @@ public class MuPreferences implements MuPreferencesAPI {
 	// -----------------------------------------------------------------------
 	/** Section describing muCommander's macOS integration. */
 	public static final String  MAC_OSX_SECTION                   = "macosx";
-	/** Whether or not to use the brushed metal look. */
-	public static final String  USE_BRUSHED_METAL                 = MAC_OSX_SECTION + '.' + "brushed_metal_look";
-	/** Default brushed metal look behavior. */
-	// At the time of writing, the 'brushed metal' look causes the JVM to crash randomly under Leopard (10.5)
-	// so we disable brushed metal on that OS version but leave it for earlier versions where it works fine.
-	// See http://www.mucommander.com/forums/viewtopic.php?f=4&t=746 for more info about this issue.
-	public static final boolean DEFAULT_USE_BRUSHED_METAL         = false;
 	/** Whether or not to use a macOS style menu bar. */
 	public static final String  USE_SCREEN_MENU_BAR               = MAC_OSX_SECTION + '.' + "screen_menu_bar";
 	/** Default menu bar type. */
@@ -437,7 +428,6 @@ public class MuPreferences implements MuPreferencesAPI {
 
 	    // Remove preferences which are not relevant if we're not using MAC
 	    if (!OsFamily.MAC_OS.isCurrent()) {
-	        conf.removeVariable(USE_BRUSHED_METAL);
 	        conf.removeVariable(USE_SCREEN_MENU_BAR);
 	    }
 

@@ -35,7 +35,11 @@ import com.mucommander.ui.main.MainFrame;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.util.List;
+
+import javax.swing.tree.DefaultMutableTreeNode;
 
 
 /**
@@ -176,20 +180,14 @@ public class UnpackJob extends AbstractCopyJob {
 
         // 'Cast' the file as an archive file
         AbstractArchiveFile archiveFile = file.getAncestor(AbstractArchiveFile.class);
-        ArchiveEntryIterator iterator = null;
 
-        ArchiveEntry entry;
-        String entryPath;
-        AbstractFile entryFile;
-        AbstractFile destFile;
         String destSeparator = destFolder.getSeparator();
-        String relDestPath;
 
         // Unpack the archive, copying entries one by one, in the iterator's order
-        try {
-            iterator = archiveFile.getEntryIterator();
+        try(ArchiveEntryIterator iterator = archiveFile.getEntryIterator()) {
+            ArchiveEntry entry;
             while((entry = iterator.nextEntry())!=null && getState() != FileJobState.INTERRUPTED) {
-                entryPath = entry.getPath();
+                String entryPath = entry.getPath();
 
                 boolean processEntry = false;
                 if(selectedEntries ==null) {    // Entries are processed
@@ -222,14 +220,24 @@ public class UnpackJob extends AbstractCopyJob {
                 if(!processEntry)
                     continue;
 
+                DefaultMutableTreeNode entryNode = archiveFile.getArchiveEntryNode(entryPath);
+                if (entryNode != null) {
+                    ArchiveEntry archiveEntry = (ArchiveEntry) entryNode.getUserObject();
+                    if (archiveEntry.isSymbolicLink()) {
+                        Files.createSymbolicLink(
+                                FileSystems.getDefault().getPath(destFolder.getPath(), entry.getName()),
+                                FileSystems.getDefault().getPath(entry.getLinkTarget()));
+                        continue;
+                    }
+                }
                 // Resolve the entry file
-                entryFile = archiveFile.getArchiveEntryFile(entryPath);
+                AbstractFile entryFile = archiveFile.getArchiveEntryFile(entryPath);
 
                 // Notify the job that we're starting to process this file
                 nextFile(entryFile);
 
                 // Figure out the destination file's path, relatively to the base destination folder
-                relDestPath = baseArchiveDepth==0
+                String relDestPath = baseArchiveDepth==0
                         ?entry.getPath()
                         :PathUtils.removeLeadingFragments(entry.getPath(), "/", baseArchiveDepth);
 
@@ -240,11 +248,7 @@ public class UnpackJob extends AbstractCopyJob {
                     relDestPath = relDestPath.replace("/", destSeparator);
 
                 // Create destination AbstractFile instance
-                destFile = destFolder.getChild(relDestPath);
-
-                // Do nothing if the file is a symlink (skip file and return)
-                if(entryFile.isSymlink())
-                    return true;
+                AbstractFile destFile = destFolder.getChild(relDestPath);
 
                 // Check if the file does not already exist in the destination
                 destFile = checkForCollision(entryFile, destFolder, destFile, false);
@@ -302,15 +306,6 @@ public class UnpackJob extends AbstractCopyJob {
         }
         catch(IOException e) {
             showErrorDialog(errorDialogTitle, Translator.get("cannot_read_file", archiveFile.getName()));
-        }
-        finally {
-            // The ArchiveEntryIterator must be closed when finished
-            if(iterator!=null) {
-                try { iterator.close(); }
-                catch(IOException e) {
-                    // Not much we can do about it
-                }
-            }
         }
 
         return false;
