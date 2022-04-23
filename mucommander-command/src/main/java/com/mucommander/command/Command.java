@@ -77,9 +77,9 @@ public class Command implements Comparable<Command> {
     /** Header of replacement keywords. */
     private static final char KEYWORD_HEADER                      = '$';
     /** Instances of this keyword will be replaced by the file's full path. */
-    private static final char KEYWORD_PATH                        = 'f';
+    public static final char KEYWORD_PATH                         = 'f';
     /** Instances of this keyword will be replaced by the file's name. */
-    private static final char KEYWORD_NAME                        = 'n';
+    public static final char KEYWORD_NAME                         = 'n';
     /** Instances of this keyword will be replaced by the file's parent directory. */
     private static final char KEYWORD_PARENT                      = 'p';
     /** Instances of this keyword will be replaced by the JVM's current directory. */
@@ -192,7 +192,7 @@ public class Command implements Comparable<Command> {
      * @return         the specified command's tokens without performing keyword substitution.
      */
     public static String[] getTokens(String command) {
-    	return getTokens(command, (AbstractFile[])null);
+        return new Command(null, null, null, null).getTokens(command, (AbstractFile[])null);
     }
 
     /**
@@ -201,7 +201,7 @@ public class Command implements Comparable<Command> {
      * @param  file    file from which to retrieve keyword substitution values.
      * @return         the specified command's tokens after replacing keywords by the corresponding values from the specified file.
      */
-    public static String[] getTokens(String command, AbstractFile file) {
+    public String[] getTokens(String command, AbstractFile file) {
     	return getTokens(command, new AbstractFile[] {file});
     }
 
@@ -211,7 +211,7 @@ public class Command implements Comparable<Command> {
      * @param  files   file from which to retrieve keyword substitution values.
      * @return         the specified command's tokens after replacing keywords by the corresponding values from the specified fileset.
      */
-    public static String[] getTokens(String command, FileSet files) {
+    public String[] getTokens(String command, FileSet files) {
     	return getTokens(command, files.toArray(new AbstractFile[files.size()]));
     }
 
@@ -221,18 +221,13 @@ public class Command implements Comparable<Command> {
      * @param  files   file from which to retrieve keyword substitution values.
      * @return         the specified command's tokens after replacing keywords by the corresponding values from the specified files.
      */
-    public static String[] getTokens(String command, AbstractFile[] files) {
-        List<String>  tokens;        // All tokens.
-        char[]        buffer;        // All the characters that compose command.
-        StringBuilder currentToken;  // Buffer for the current token.
-        boolean       isInQuotes;    // Whether we're currently within quotes or not.
+    public String[] getTokens(String command, AbstractFile[] files) {
+        List<String> tokens = new Vector<String>(); // All tokens.
+        StringBuilder currentToken = new StringBuilder(command.length()); // Buffer for the current token.
+        char[] buffer = command.toCharArray(); // All the characters that compose command.
+        boolean isInQuotes = false; // Whether we're currently within quotes or not.
 
-        // Initialises parsing.
-        tokens       = new Vector<String>();
-        command      = command.trim();
-        currentToken = new StringBuilder(command.length());
-        buffer       = command.toCharArray();
-        isInQuotes   = false;
+        command = command.trim();
 
         // Parses the command.
         for(int i = 0; i < command.length(); i++) {
@@ -366,7 +361,7 @@ public class Command implements Comparable<Command> {
      * @param  file    file from which to retrieve the replacement value.
      * @return         the requested replacement value.
      */
-    private static String getKeywordReplacement(char keyword, AbstractFile file) {
+    protected String getKeywordReplacement(char keyword, AbstractFile file) {
         switch(keyword) {
         case KEYWORD_PATH:
             return file.getAbsolutePath();
@@ -393,8 +388,6 @@ public class Command implements Comparable<Command> {
         }
         throw new IllegalArgumentException();
     }
-
-
 
     // - Misc. ---------------------------------------------------------------------------------------------------------
     // -----------------------------------------------------------------------------------------------------------------

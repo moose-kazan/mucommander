@@ -17,9 +17,10 @@
 
 package com.mucommander.commons.file.protocol.search;
 
-import java.util.Map;
+import java.util.List;
 
 import com.mucommander.commons.file.AbstractFile;
+import com.mucommander.commons.util.Pair;
 
 /**
  * An interface that the SearchBuilder should provide for mucommander-commons-file
@@ -29,12 +30,19 @@ public interface SearchBuilder {
     SearchBuilder listener(SearchListener listener);
     SearchBuilder what(String searchStr);
     SearchBuilder where(AbstractFile entrypoint);
-    SearchBuilder searchArchives(Map<String, String> properties);
-    SearchBuilder searchHidden(Map<String, String> properties);
-    SearchBuilder searchSubfolders(Map<String, String> properties);
-    SearchBuilder searchDepth(Map<String, String> properties);
-    SearchBuilder matchCaseInsensitive(Map<String, String> properties);
-    SearchBuilder matchRegex(Map<String, String> properties);
-    SearchBuilder searchText(Map<String, String> properties);
+    SearchBuilder searchInArchives(List<Pair<String, String>> properties);
+    SearchBuilder searchInHidden(List<Pair<String, String>> properties);
+    SearchBuilder searchInSymlinks(List<Pair<String, String>> properties);
+    SearchBuilder searchInSubfolders(List<Pair<String, String>> properties);
+    SearchBuilder searchForArchives(List<Pair<String, String>> properties);
+    SearchBuilder searchForHidden(List<Pair<String, String>> properties);
+    SearchBuilder searchForSymlinks(List<Pair<String, String>> properties);
+    SearchBuilder searchForSubfolders(List<Pair<String, String>> properties);
+    SearchBuilder searchDepth(List<Pair<String, String>> properties);
+    SearchBuilder searchThreads(List<Pair<String, String>> properties);
+    SearchBuilder matchCaseInsensitive(List<Pair<String, String>> properties);
+    SearchBuilder matchRegex(List<Pair<String, String>> properties);
+    SearchBuilder searchText(List<Pair<String, String>> properties);
+    SearchBuilder searchSize(List<Pair<String, String>> properties);
     SearchJob build();
 }

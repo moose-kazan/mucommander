@@ -16,13 +16,17 @@
  */
 package com.mucommander.osgi;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
 import org.osgi.util.tracker.ServiceTracker;
-import java.util.ArrayList;
-import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.mucommander.viewer.FileEditorService;
 
 /**
  * Registration tracker for file editor service.
@@ -32,31 +36,31 @@ import org.slf4j.LoggerFactory;
 public class FileEditorServiceTracker extends ServiceTracker<FileEditorService, FileEditorService> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FileEditorServiceTracker.class);
-    
+
     private static final List<FileEditorService> SERVICES = new ArrayList<>();
 
     public FileEditorServiceTracker(BundleContext context) {
         super(context, FileEditorService.class, null);
-
-//        context.getAllServiceReferences(FileEditorService.class, "");
     }
 
     @Override
     public FileEditorService addingService(ServiceReference<FileEditorService> reference) {
         FileEditorService service = super.addingService(reference);
-        SERVICES.add(service);
-//        EditorRegistrar.registerFileEditor(null);
-//        FileFactory.registerArchiveFormat(service.getProvider());
+        FileEditorServiceTracker.addEditorService(service);
         LOGGER.info("FileEditorService is registered: " + service);
         return service;
     }
 
     @Override
     public void removedService(ServiceReference<FileEditorService> reference, FileEditorService service) {
-        // EditorRegistrar.unregisterFileEditor(null);
         super.removedService(reference, service);
         SERVICES.add(service);
         LOGGER.info("FileFormatService is unregistered: " + service);
+    }
+
+    private static void addEditorService(FileEditorService service) {
+        SERVICES.add(service);
+        SERVICES.sort(Comparator.comparing(FileEditorService::getOrderPriority).reversed());
     }
 
     public static List<FileEditorService> getEditorServices() {

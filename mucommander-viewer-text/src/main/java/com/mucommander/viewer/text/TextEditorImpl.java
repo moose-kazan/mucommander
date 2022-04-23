@@ -35,6 +35,7 @@ import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultEditorKit;
 import javax.swing.text.Document;
 
+import com.mucommander.commons.util.StringUtils;
 import com.mucommander.ui.theme.ColorChangedEvent;
 import com.mucommander.ui.theme.FontChangedEvent;
 import com.mucommander.ui.theme.Theme;
@@ -48,7 +49,7 @@ import com.mucommander.ui.theme.ThemeManager;
  */
 class TextEditorImpl implements ThemeListener {
 
-	private String searchString;
+	private static String searchString;
 
 	private JFrame frame;
 
@@ -78,7 +79,6 @@ class TextEditorImpl implements ThemeListener {
 		};
 
 		textArea.setEditable(isEditable);
-
 		// Use theme colors and font
 		textArea.setForeground(ThemeManager.getCurrentColor(Theme.EDITOR_FOREGROUND_COLOR));
 		textArea.setCaretColor(ThemeManager.getCurrentColor(Theme.EDITOR_FOREGROUND_COLOR));
@@ -121,19 +121,20 @@ class TextEditorImpl implements ThemeListener {
 	void find() {
 		FindDialog findDialog = new FindDialog(frame);
 
-		if(findDialog.wasValidated()) {
+		if (findDialog.wasValidated()) {
 			searchString = findDialog.getSearchString().toLowerCase();
 
-			if(!searchString.equals(""))
+			if (!StringUtils.isNullOrEmpty(searchString))
 				doSearch(0, true);
 		}
-
-		// Request the focus on the text area which could be lost after the Find dialog was disposed
-		textArea.requestFocus();
 	}
 
+
 	void findNext() {
-		doSearch(textArea.getSelectionEnd(), true);
+	    if (StringUtils.isNullOrEmpty(searchString))
+	        find();
+	    else
+	        doSearch(textArea.getSelectionEnd(), true);
 	}
 
 	void findPrevious() {
@@ -145,8 +146,11 @@ class TextEditorImpl implements ThemeListener {
 	}
 
 	private void doSearch(int startPos, boolean forward) {
-		if (searchString == null || searchString.length() == 0)
+		if (StringUtils.isNullOrEmpty(searchString))
 			return;
+
+		textArea.requestFocus();
+
 		int pos;
 		if (forward) {
 			pos = getTextLC().indexOf(searchString, startPos);
@@ -162,12 +166,7 @@ class TextEditorImpl implements ThemeListener {
 			// the end of the file is reached, and we don't want those beeps to played one after the other as to:
 			// 1/ not lock the event thread
 			// 2/ have those beeps to end rather sooner than later
-			new Thread() {
-				@Override
-				public void run() {
-					Toolkit.getDefaultToolkit().beep();
-				}
-			}.start();
+			new Thread(() -> Toolkit.getDefaultToolkit().beep()).start();
 		}
 	}
 

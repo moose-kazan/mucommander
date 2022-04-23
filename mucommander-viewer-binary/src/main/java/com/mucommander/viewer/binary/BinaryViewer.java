@@ -16,219 +16,115 @@
  */
 package com.mucommander.viewer.binary;
 
-import java.awt.Color;
-import java.awt.Cursor;
-import java.awt.Dimension;
-import java.awt.Frame;
-import java.awt.event.ActionListener;
-import java.io.IOException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.awt.event.KeyEvent;
+import java.util.Objects;
 
-import javax.swing.ButtonGroup;
+import javax.annotation.Nonnull;
+import javax.annotation.ParametersAreNonnullByDefault;
 import javax.swing.JComponent;
-import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
-import javax.swing.JRadioButtonMenuItem;
+import javax.swing.JPopupMenu;
+import javax.swing.KeyStroke;
 
-import org.exbin.deltahex.CodeType;
-import org.exbin.deltahex.EditationAllowed;
-import org.exbin.deltahex.HexCharactersCase;
-import org.exbin.deltahex.swing.CodeArea;
-import org.exbin.utils.binary_data.ByteArrayEditableData;
+import org.exbin.bined.EditMode;
+import org.exbin.bined.swing.basic.CodeArea;
 
 import com.mucommander.commons.file.AbstractFile;
+import com.mucommander.commons.util.ui.dialog.DialogOwner;
 import com.mucommander.commons.util.ui.helper.MenuToolkit;
 import com.mucommander.commons.util.ui.helper.MnemonicHelper;
 import com.mucommander.text.Translator;
-import com.mucommander.ui.theme.ColorChangedEvent;
-import com.mucommander.ui.theme.FontChangedEvent;
-import com.mucommander.ui.theme.Theme;
-import com.mucommander.ui.theme.ThemeListener;
-import com.mucommander.ui.theme.ThemeManager;
-import com.mucommander.ui.viewer.FileFrame;
-import com.mucommander.ui.viewer.FileViewer;
-import com.mucommander.viewer.FileViewerWrapper;
+import com.mucommander.ui.encoding.EncodingMenu;
+import com.mucommander.viewer.FileViewer;
+import com.mucommander.viewer.ViewerPresenter;
 
 /**
  * General viewer for binary files.
  *
  * @author Miroslav Hajda
  */
-class BinaryViewer extends FileViewer implements ActionListener, FileViewerWrapper {
+@ParametersAreNonnullByDefault
+class BinaryViewer extends BinaryBase implements FileViewer {
 
-    private Frame frame;
-
-    /**
-     * Menu bar
-     */
-    // Menus //
-    private JMenu editMenu;
-    private JMenu viewMenu;
-    private JMenu codeTypeMenu;
-    private JMenu hexCharacterCaseMenu;
-    // Items //
-    private javax.swing.ButtonGroup codeTypeButtonGroup;
-    private javax.swing.ButtonGroup hexCharacterCaseButtonGroup;
-    private JMenuItem copyItem;
-    private JMenuItem selectAllItem;
-    private javax.swing.JRadioButtonMenuItem binaryCodeTypeRadioButtonMenuItem;
-    private javax.swing.JRadioButtonMenuItem octalCodeTypeRadioButtonMenuItem;
-    private javax.swing.JRadioButtonMenuItem decimalCodeTypeRadioButtonMenuItem;
-    private javax.swing.JRadioButtonMenuItem hexadecimalCodeTypeRadioButtonMenuItem;
-    private javax.swing.JRadioButtonMenuItem lowerCaseRadioButtonMenuItem;
-    private javax.swing.JRadioButtonMenuItem upperCaseRadioButtonMenuItem;
-
-    private BinaryViewerImpl binaryViewerImpl;
+    private ViewerPresenter presenter;
+    private JMenuItem copyPopupMenuItem;
 
     public BinaryViewer() {
-        binaryViewerImpl = new BinaryViewerImpl();
-
-        setComponentToPresent(binaryViewerImpl);
+        super();
 
         initMenuBars();
+        init();
     }
 
     private void initMenuBars() {
-        editMenu = new JMenu(Translator.get("text_viewer.edit"));
         MnemonicHelper menuItemMnemonicHelper = new MnemonicHelper();
+        JPopupMenu popupMenu = new JPopupMenu();
+        int metaMask = getMetaMask();
 
-        copyItem = MenuToolkit.addMenuItem(editMenu, Translator.get("text_viewer.copy"), menuItemMnemonicHelper, null, this);
-        copyItem.addActionListener(e -> binaryViewerImpl.copy());
+        copyPopupMenuItem = MenuToolkit.createMenuItem(Translator.get("binary_viewer.copy"),
+                menuItemMnemonicHelper,
+                KeyStroke.getKeyStroke(KeyEvent.VK_C, metaMask),
+                e -> binaryComponent.getCodeArea().copy());
+        popupMenu.add(copyPopupMenuItem);
+        popupMenu.add(MenuToolkit.createMenuItem(Translator.get("binary_viewer.select_all"),
+                menuItemMnemonicHelper,
+                KeyStroke.getKeyStroke(KeyEvent.VK_A, metaMask),
+                e -> binaryComponent.getCodeArea().selectAll()));
 
-        selectAllItem = MenuToolkit.addMenuItem(editMenu, Translator.get("text_viewer.select_all"), menuItemMnemonicHelper, null, this);
-        selectAllItem.addActionListener(e -> binaryViewerImpl.selectAll());
+        binaryComponent.getCodeArea().setComponentPopupMenu(popupMenu);
+    }
 
-        // View menu
-        viewMenu = new JMenu(Translator.get("text_viewer.view"));
+    private void init() {
+        CodeArea codeArea = binaryComponent.getCodeArea();
+        codeArea.addSelectionChangedListener(this::updateClipboardActionsStatus);
+        updateClipboardActionsStatus();
+    }
 
-        codeTypeMenu = new JMenu("Code Type");
-
-        codeTypeButtonGroup = new ButtonGroup();
-        binaryCodeTypeRadioButtonMenuItem = new JRadioButtonMenuItem();
-        codeTypeButtonGroup.add(binaryCodeTypeRadioButtonMenuItem);
-        binaryCodeTypeRadioButtonMenuItem.setText("Binary");
-        binaryCodeTypeRadioButtonMenuItem.addActionListener(e -> binaryViewerImpl.setCodeType(CodeType.BINARY));
-        codeTypeMenu.add(binaryCodeTypeRadioButtonMenuItem);
-
-        octalCodeTypeRadioButtonMenuItem = new JRadioButtonMenuItem();
-        codeTypeButtonGroup.add(octalCodeTypeRadioButtonMenuItem);
-        octalCodeTypeRadioButtonMenuItem.setText("Octal");
-        octalCodeTypeRadioButtonMenuItem.addActionListener(e -> binaryViewerImpl.setCodeType(CodeType.OCTAL));
-        codeTypeMenu.add(octalCodeTypeRadioButtonMenuItem);
-
-        decimalCodeTypeRadioButtonMenuItem = new JRadioButtonMenuItem();
-        codeTypeButtonGroup.add(decimalCodeTypeRadioButtonMenuItem);
-        decimalCodeTypeRadioButtonMenuItem.setText("Decimal");
-        decimalCodeTypeRadioButtonMenuItem.addActionListener(e -> binaryViewerImpl.setCodeType(CodeType.DECIMAL));
-        codeTypeMenu.add(decimalCodeTypeRadioButtonMenuItem);
-
-        hexadecimalCodeTypeRadioButtonMenuItem = new JRadioButtonMenuItem();
-        codeTypeButtonGroup.add(hexadecimalCodeTypeRadioButtonMenuItem);
-        hexadecimalCodeTypeRadioButtonMenuItem.setSelected(true);
-        hexadecimalCodeTypeRadioButtonMenuItem.setText("Hexadecimal");
-        hexadecimalCodeTypeRadioButtonMenuItem.addActionListener(e -> binaryViewerImpl.setCodeType(CodeType.HEXADECIMAL));
-        codeTypeMenu.add(hexadecimalCodeTypeRadioButtonMenuItem);
-        viewMenu.add(codeTypeMenu);
-
-        hexCharacterCaseMenu = new JMenu("Hex Character Case");
-        hexCharacterCaseButtonGroup = new ButtonGroup();
-
-        upperCaseRadioButtonMenuItem = new JRadioButtonMenuItem();
-        hexCharacterCaseButtonGroup.add(upperCaseRadioButtonMenuItem);
-        upperCaseRadioButtonMenuItem.setSelected(true);
-        upperCaseRadioButtonMenuItem.setText("Upper Case");
-        upperCaseRadioButtonMenuItem.addActionListener(e -> binaryViewerImpl.setHexCharactersCase(HexCharactersCase.UPPER));
-        hexCharacterCaseMenu.add(upperCaseRadioButtonMenuItem);
-
-        lowerCaseRadioButtonMenuItem = new JRadioButtonMenuItem();
-        hexCharacterCaseButtonGroup.add(lowerCaseRadioButtonMenuItem);
-        lowerCaseRadioButtonMenuItem.setText("Lower Case");
-        lowerCaseRadioButtonMenuItem.addActionListener(e -> binaryViewerImpl.setHexCharactersCase(HexCharactersCase.LOWER));
-        hexCharacterCaseMenu.add(lowerCaseRadioButtonMenuItem);
-        viewMenu.add(hexCharacterCaseMenu);
+    private void updateClipboardActionsStatus() {
+        CodeArea codeArea = binaryComponent.getCodeArea();
+        copyMenuItem.setEnabled(codeArea.hasSelection());
+        copyPopupMenuItem.setEnabled(codeArea.hasSelection());
     }
 
     @Override
-    public JMenuBar getMenuBar() {
-        JMenuBar menuBar = super.getMenuBar();
-
+    public void extendMenu(JMenuBar menuBar) {
         menuBar.add(editMenu);
         menuBar.add(viewMenu);
 
-        return menuBar;
+        EncodingMenu encodingMenu = new EncodingMenu(new DialogOwner(presenter.getWindowFrame()),
+                binaryComponent.getCodeArea().getCharset().name());
+        encodingMenu.addEncodingListener((source, oldEncoding, newEncoding) -> changeEncoding(newEncoding));
+        menuBar.add(encodingMenu);
     }
 
-    private synchronized void loadFile(AbstractFile file) throws IOException {
-        FileFrame frame = getFrame();
-        frame.setCursor(new Cursor(Cursor.WAIT_CURSOR));
-
-        ByteArrayEditableData data = new ByteArrayEditableData();
-        try {
-            data.loadFromStream(file.getInputStream());
-        } catch (IOException ex) {
-            Logger.getLogger(BinaryViewer.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
-        binaryViewerImpl.setData(data);
-
-        frame.setCursor(Cursor.getDefaultCursor());
+    private synchronized void loadFile(AbstractFile file) {
+        CodeArea codeArea = binaryComponent.getCodeArea();
+        codeArea.setContentData(new FileBinaryData(file));
+        codeArea.setEditMode(EditMode.READ_ONLY);
+        notifyOrigFileChanged();
+        binaryComponent.updateCurrentMemoryMode();
     }
 
     @Override
-    public void show(AbstractFile file) throws IOException {
+    public void open(AbstractFile file) {
         loadFile(file);
     }
 
-    /**
-     * Returns panel for viewer.
-     *
-     * @return component instance
-     */
     @Override
-    public JComponent getViewerComponent() {
-        return this;
+    public void close() {
+        Objects.requireNonNull(((FileBinaryData) binaryComponent.getCodeArea().getContentData())).close();
+    }
+
+    @Nonnull
+    @Override
+    public JComponent getUI() {
+        return binaryComponent;
     }
 
     @Override
-    public void setFrame(Frame frame) {
-        this.frame = frame;
-    }
-
-    private class BinaryViewerImpl extends CodeArea implements ThemeListener {
-
-        private Color backgroundColor;
-
-        BinaryViewerImpl() {
-            backgroundColor = ThemeManager.getCurrentColor(Theme.EDITOR_BACKGROUND_COLOR);
-            super.setBackground(backgroundColor);
-            ThemeManager.addCurrentThemeListener(this);
-            setEditationAllowed(EditationAllowed.READ_ONLY);
-        }
-
-        @Override
-        public synchronized Dimension getPreferredSize() {
-            return new Dimension(750, 500);
-        }
-
-        /**
-         * Receives theme color changes notifications.
-         */
-        @Override
-        public void colorChanged(ColorChangedEvent event) {
-            if (event.getColorId() == Theme.EDITOR_BACKGROUND_COLOR) {
-                backgroundColor = event.getColor();
-                super.setBackground(backgroundColor);
-                repaint();
-            }
-        }
-
-        /**
-         * Not used, implemented as a no-op.
-         */
-        @Override
-        public void fontChanged(FontChangedEvent event) {
-        }
+    public void setPresenter(ViewerPresenter presenter) {
+        this.presenter = presenter;
+        setWindowFrame(presenter.getWindowFrame());
     }
 }

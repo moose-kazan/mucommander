@@ -250,6 +250,19 @@ public class UnpackJob extends AbstractCopyJob {
                 // Create destination AbstractFile instance
                 AbstractFile destFile = destFolder.getChild(relDestPath);
 
+                // Check for ZipSlip (see https://snyk.io/research/zip-slip-vulnerability)
+                do {
+                    if (destFolder.isParentOf(destFile))
+                        break;
+
+                    int ret = showErrorDialog(errorDialogTitle, Translator.get("unpack.entry_out_of_target_dir", destFile.getName()));
+                    // Retry loops
+                    if(ret==FileJobAction.RETRY)
+                        continue;
+                    // Cancel, skip or close dialog returns false
+                    return false;
+                } while(true);
+
                 // Check if the file does not already exist in the destination
                 destFile = checkForCollision(entryFile, destFolder, destFile, false);
                 if (destFile == null) {

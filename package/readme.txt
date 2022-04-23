@@ -6,7 +6,7 @@
 
 
 ------------------
-muCommander v0.9.8
+muCommander v1.0.0
 ------------------
 
 muCommander is a lightweight, cross-platform file manager with a dual-pane interface.
@@ -15,7 +15,7 @@ It runs on any operating system with Java support (macOS, Windows, Linux, *BSD, 
 Please visit the muCommander project page on GitHub (https://github.com/mucommander) to ask questions,
 suggest features, report a bug or browse documentation. Your feedback is always welcome!
 
-Official website: http://www.mucommander.com
+Official website: https://www.mucommander.com
 
 
 Requirements
@@ -28,40 +28,25 @@ If you're having problems launching muCommander, make sure the JAVA_HOME environ
 where your Java runtime is installed.
 
 
-What's new since v0.9.7 ?
+What's new since v1.0.0 ?
 -----------------------
 
 New features:
--
+- 
 
 Improvements:
-- Mouse clicks on the headers of a file table (e.g., NAME, SIZE, DATE) are better detected.
-- Require non-headless Java when installing from RPM.
-- Use absolute path rather than canonical path in bookmarks to avoid resolving symbolic links.
-- Tar archives with headers in the pax format are now supported.
-- The free space indicator in the status bar is updated right after relevant events like switching to the application.
-- Symbolic links are unpacked from tar archives.
-- The portable version stores preferences files in the installation directory.
+- Added keyboard shortcut to Open Trash (plus minor fix for possible NPE)
 
 Localization:
-- Updated Russian translation
+- Korean translation updated.
 
 Bug fixes:
-- Fix installation using GDebi Package Installer
-- Permanent deletion of symbolic links on Windows no longer deletes their linked content.
-- Restore file table configuration (column visibility, width and position) on startup also when custom folders are set.
-- The default keyboard shortcut for packing files (CTRL+I) opens the 'Pack files' dialog on macOS.
-- File search works with search strings that resemble a path to an archive file, e.g., find:///home/*.zip.
+- 
 
 Known issues:
-- Mac OS X: "muCommander damaged and cannot be opened" may appear after downloading muCommander from the browser. This
-  can be solved by executing: xattr -d com.apple.quarantine <jar_name>.jar
 - Some translations may not be up-to-date.
-- Mac OS X: "Do you want the application "muCommander.app" to accept incoming network connections?" dialog keeps popping
-  up on startup even if the dialog has been previously accepted (ticket #339), when 'Bonjour' support is enabled.
 - SMB support may not work properly on non multi-language JRE.
 - 'Copy files to clipboard' not working with some applications (files are not pasted).
-- Mac OS X: some keyboard shortcuts may conflict with global system shortcuts.
 - Authentication issues when using several sets of credentials (login/password) for the same server.
 - Untrusted HTTPS connections are allowed without a warning.
 - Windows Vista/7: "java.net.SocketException: Permission denied: recv failed" error can appear when trying to access FTP
@@ -70,10 +55,15 @@ Known issues:
 - Unpacking files from 7z archive files can be slow.
 - Need to enable NTLM authentication manually in order to authenticate to Samba >= 4.5. This is done by adding 'ntlm auth = yes' to smb.conf.
 - Version 5.0 of RAR is not supported. Such archives would appear empty.
-- Issues with browsing Documents/Desktop/Downloads on macOS may be solved by resetting Security and Privacy settings.
+- macOS: issues with browsing Documents/Desktop/Downloads may be solved by resetting Security and Privacy settings.
   See https://github.com/mucommander/mucommander/wiki/Reset-Security-&-Privacy-Settings-on-macOS for more details.
-- Mac OS X: muCommander may not be able to start on version <= 10.10 (OS X Yosemite) due to incompatibility of the bundled JRE.
+- macOS: muCommander may not be able to start on version <= 10.10 (OS X Yosemite) due to incompatibility of the bundled JRE.
   This can be solved by installing Java 8 and running '/Applications/muCommander.app/Contents/replace_jre.sh'.
+- macOS: "muCommander damaged and cannot be opened" may appear after downloading muCommander from the browser. This
+  can be solved by executing: xattr -d com.apple.quarantine <jar_name>.jar
+- macOS: "Do you want the application "muCommander.app" to accept incoming network connections?" dialog keeps popping
+  up on startup even if the dialog has been previously accepted (ticket #339), when 'Bonjour' support is enabled.
+- macOS: some keyboard shortcuts may conflict with global system shortcuts.
 
 License
 -------

@@ -39,7 +39,6 @@ import com.mucommander.text.Translator;
 import com.mucommander.ui.action.AbstractActionDescriptor;
 import com.mucommander.ui.action.ActionCategory;
 import com.mucommander.ui.action.ActionDescriptor;
-import com.mucommander.ui.action.ActionFactory;
 import com.mucommander.ui.action.ActionManager;
 import com.mucommander.ui.action.MuAction;
 import com.mucommander.ui.dialog.InformationDialog;
@@ -193,7 +192,7 @@ public class OpenAction extends MuAction {
 	 * @param mainFrame determines the <code>Frame</code> in which the dialog is displayed
 	 * @param file the file to open.
 	 */
-	public static void openFile(MainFrame mainFrame, AbstractFile file) throws IOException {
+	public static void openFile(MainFrame mainFrame, AbstractFile file) throws IOException, UnsupportedOperationException {
 		DesktopManager.open(file).thenAccept(
 			outputMessages -> outputMessages.ifPresent(
 				s -> {
@@ -212,13 +211,6 @@ public class OpenAction extends MuAction {
 		return new Descriptor();
 	}
 
-    public static class Factory implements ActionFactory {
-
-		public MuAction createAction(MainFrame mainFrame, Map<String,Object> properties) {
-			return new OpenAction(mainFrame, properties);
-		}
-    }
-    
     public static class Descriptor extends AbstractActionDescriptor {
     	public static final String ACTION_ID = "Open";
     	

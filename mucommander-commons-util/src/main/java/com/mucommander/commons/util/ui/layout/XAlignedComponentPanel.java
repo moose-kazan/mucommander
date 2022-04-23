@@ -102,8 +102,10 @@ public class XAlignedComponentPanel extends JPanel {
      * @param component JComponent instance, will take all remaining width space
      * @param ySpaceAfter number of pixels to be inserted after this row
      */
-    public void addRow(String label, JComponent component, int ySpaceAfter) {
-        addRow(new JLabel(label), component, ySpaceAfter);
+    public JLabel addRow(String label, JComponent component, int ySpaceAfter) {
+        JLabel l = new JLabel(label);
+        addRow(l, component, ySpaceAfter);
+        return l;
     }
 
 

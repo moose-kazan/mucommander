@@ -37,6 +37,7 @@ import com.mucommander.commons.file.UnsupportedFileOperationException;
 import com.mucommander.commons.file.protocol.ProtocolFile;
 import com.mucommander.commons.io.RandomAccessInputStream;
 import com.mucommander.commons.io.RandomAccessOutputStream;
+import com.mucommander.commons.util.Pair;
 
 /**
  * @author Arik Hadas
@@ -51,7 +52,7 @@ public class SearchFile extends ProtocolFile implements SearchListener {
 
     /** Time at which the search results were last modified. */
     private long lastModified;
-    private Map<String, String> properties;
+    private List<Pair<String, String>> properties;
     private SearchJob search;
     private String searchStr;
     private AbstractFile searchPlace;
@@ -71,13 +72,13 @@ public class SearchFile extends ProtocolFile implements SearchListener {
         return this;
     }
 
-    public SearchFile setProperties(Map<String, String> properties) {
+    public SearchFile setProperties(List<Pair<String, String>> properties) {
         this.properties = properties;
         return this;
     }
 
     @Override
-    public AbstractFile[] ls() throws IOException, UnsupportedFileOperationException {
+    public AbstractFile[] ls() throws IOException {
         if (search == null) {
             return EMPTY_RESULTS;
         }
@@ -96,7 +97,10 @@ public class SearchFile extends ProtocolFile implements SearchListener {
 
     @Override
     public synchronized void searchChanged() {
-        lastModified = System.currentTimeMillis();
+        long now = System.currentTimeMillis();
+        if (lastModified == now)
+            now++;
+        lastModified = now;
     }
 
     @Override
@@ -173,8 +177,7 @@ public class SearchFile extends ProtocolFile implements SearchListener {
 
     /**
      * Starts a search thread.
-     * @param mainFrame the MainFrame the search is initiated from
-     */
+     **/
     public void start(SearchBuilder builder) {
         lastModified = System.currentTimeMillis();
         pausedToDueMaxResults = null;
@@ -182,13 +185,20 @@ public class SearchFile extends ProtocolFile implements SearchListener {
                 .listener(this)
                 .what(searchStr)
                 .where(searchPlace)
-                .searchArchives(properties)
-                .searchHidden(properties)
-                .searchSubfolders(properties)
+                .searchInArchives(properties)
+                .searchInHidden(properties)
+                .searchInSymlinks(properties)
+                .searchInSubfolders(properties)
+                .searchForArchives(properties)
+                .searchForHidden(properties)
+                .searchForSymlinks(properties)
+                .searchForSubfolders(properties)
                 .searchDepth(properties)
+                .searchThreads(properties)
                 .matchCaseInsensitive(properties)
                 .matchRegex(properties)
                 .searchText(properties)
+                .searchSize(properties)
                 .build();
         search.start();
     }

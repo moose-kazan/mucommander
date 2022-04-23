@@ -30,6 +30,7 @@ import com.mucommander.auth.CredentialsMapping;
 import com.mucommander.commons.file.AbstractFile;
 import com.mucommander.commons.file.FileFactory;
 import com.mucommander.commons.file.FileURL;
+import com.mucommander.commons.file.MonitoredFile;
 import com.mucommander.commons.file.UnsupportedFileOperationException;
 import com.mucommander.commons.file.protocol.local.LocalFile;
 import com.mucommander.commons.file.protocol.search.SearchFile;
@@ -79,8 +80,10 @@ public class LocationChanger {
 		
 		Runnable locationSetter = () -> {
 		    AbstractFile folder = getWorkableLocation(tab.getLocation());
+		    AbstractFile selectedFile = tab.getSelectedFile();
 		    try {
-		        locationManager.setCurrentFolder(folder, null, true);
+		        locationManager.setCurrentFolder(folder, selectedFile, true);
+		        tab.setSelectedFile(null);
 		    } finally {
 		        mainFrame.setNoEventsMode(false);
 		        // Restore default cursor
@@ -178,8 +181,7 @@ public class LocationChanger {
 			case SearchFile.SCHEMA:
 			    if (folder instanceof SearchFile)
 			        ((SearchFile) folder).stop();
-			    else
-			        folder = FileFactory.getFile(folderURL);
+			    folder = FileFactory.getFile(folderURL);
 			    thread = new SearchUpdaterThread(folderURL, changeLockedTab, mainFrame, folderPanel, locationManager, this);
 			    break;
 			default:
@@ -300,11 +302,9 @@ public class LocationChanger {
 	/**
 	 * Shorthand for {@link #tryRefreshCurrentFolder(AbstractFile)} called with no specific file (<code>null</code>)
 	 * to select after the folder has been changed.
-	 *
-	 * @return the thread that performs the actual folder change, null if another folder change is already underway
 	 */
-	public ChangeFolderThread tryRefreshCurrentFolder() {
-		return tryRefreshCurrentFolder(null);
+	public void tryRefreshCurrentFolder() {
+		tryRefreshCurrentFolder(null);
 	}
 
 	/**
@@ -318,12 +318,12 @@ public class LocationChanger {
 	 *
 	 * @param selectThisFileAfter file to be selected after the folder has been refreshed (if it exists in the folder),
 	 * can be null in which case FileTable rules will be used to select current file
-	 * @return the thread that performs the actual folder change, null if another folder change is already underway
 	 * @see #tryChangeCurrentFolder(AbstractFile, AbstractFile, boolean)
 	 */
-	public ChangeFolderThread tryRefreshCurrentFolder(AbstractFile selectThisFileAfter) {
-		folderPanel.getFoldersTreePanel().refreshFolder(locationManager.getCurrentFolder());
-		return tryChangeCurrentFolder(locationManager.getCurrentFolder(), selectThisFileAfter, true, true);
+	public void tryRefreshCurrentFolder(AbstractFile selectThisFileAfter) {
+	    MonitoredFile currentFolder = locationManager.getCurrentFolder();
+	    folderPanel.getFoldersTreePanel().refreshFolder(currentFolder);
+	    tryChangeCurrentFolder(currentFolder, selectThisFileAfter, true, true);
 	}
 	
 	 /**
@@ -359,14 +359,13 @@ public class LocationChanger {
     }
 
     /**
-     * Returns the thread that is currently changing the current folder, <code>null</code> is the folder is not being
-     * changed.
+     * Try to kill the thread that is currently changing the current folder, if exists
      *
-     * @return the thread that is currently changing the current folder, <code>null</code> is the folder is not being
-     * changed
+     * @return true if an attempt was made to stop the thread
      */
-    public ChangeFolderThread getChangeFolderThread() {
-        return changeFolderThread;
+    public boolean tryKillChangeFolderThread() {
+        ChangeFolderThread changeFolderThread = this.changeFolderThread;
+        return changeFolderThread != null ? changeFolderThread.tryKill() : false;
     }
 
 

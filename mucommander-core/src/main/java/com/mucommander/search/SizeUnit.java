@@ -14,31 +14,21 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.mucommander.viewer;
-
-import com.mucommander.commons.file.AbstractFile;
-import java.io.IOException;
-import javax.swing.JComponent;
+package com.mucommander.search;
 
 /**
- * Interface for file editor.
- *
- * @author Miroslav Hajda
+ * @author Gerolf Scherr
  */
-public interface FileEditorWrapper {
+public enum SizeUnit {
+    bytes(1),
+    kB(1024),
+    MB(1024*1024),
+    GB(1024l*1024*1024),
+    TB(1024l*1024*1024*1024);
+    final long factor;
+    SizeUnit(long factor) {
+        this.factor = factor;
+    }
+    public final static SizeUnit[] VALUES = values();
 
-    /**
-     * Opens a given AbstractFile for display.
-     *
-     * @param file the file to be presented
-     * @throws IOException in case of an I/O problem
-     */
-    void open(AbstractFile file) throws IOException;
-
-    /**
-     * Returns panel for viewer.
-     *
-     * @return component instance
-     */
-    JComponent getUI();
 }

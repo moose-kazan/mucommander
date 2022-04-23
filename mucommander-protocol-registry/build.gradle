@@ -1,8 +1,10 @@
+repositories.mavenCentral()
+
 dependencies {
     api project(':mucommander-commons-file')
     api project(':mucommander-commons-util')
     api project(':mucommander-protocol-api')
-    api project(':mucommander-format-tar')
+    api project(':mucommander-format-gzip')
     api project(':mucommander-process')
     api project(':mucommander-translator')
     implementation 'org.ovirt.engine.api:sdk:4.4.5'
@@ -12,8 +14,6 @@ dependencies {
     testImplementation 'org.testng:testng:6.11'
     testImplementation files(project(':mucommander-commons-file').sourceSets.test.output)
 }
-
-repositories.jcenter()
 
 jar {
    bnd ('Bundle-Name': 'muCommander-registry', 

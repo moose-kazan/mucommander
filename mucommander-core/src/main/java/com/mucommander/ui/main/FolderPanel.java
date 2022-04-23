@@ -357,16 +357,16 @@ public class FolderPanel extends JPanel implements FocusListener, QuickListConta
     	return locationChanger.tryChangeCurrentFolder(folderURL, credentialsMapping, false);
     }
 
-    public ChangeFolderThread tryRefreshCurrentFolder() {
-    	return locationChanger.tryRefreshCurrentFolder();
+    public void tryRefreshCurrentFolder() {
+        locationChanger.tryRefreshCurrentFolder();
     }
 
-    public ChangeFolderThread tryRefreshCurrentFolder(AbstractFile selectThisFileAfter) {
-        return locationChanger.tryRefreshCurrentFolder(selectThisFileAfter);
+    public void tryRefreshCurrentFolder(AbstractFile selectThisFileAfter) {
+        locationChanger.tryRefreshCurrentFolder(selectThisFileAfter);
     }
 
-    public ChangeFolderThread getChangeFolderThread() {
-        return locationChanger.getChangeFolderThread();
+    public boolean tryKillChangeFolderThread() {
+        return locationChanger.tryKillChangeFolderThread();
     }
 
     public long getLastFolderChangeTime() {

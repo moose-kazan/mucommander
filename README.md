@@ -1,6 +1,6 @@
 # muCommander
 
-[![Version](http://img.shields.io/badge/version-0.9.8-blue.svg?style=flat)](https://github.com/mucommander/mucommander/releases/tag/nightly)
+[![Version](http://img.shields.io/badge/version-1.0.1-blue.svg?style=flat)](https://github.com/mucommander/mucommander/releases/tag/nightly)
 [![License](http://img.shields.io/badge/License-GPL-blue.svg)](http://www.gnu.org/copyleft/gpl.html)
 [![Build Status](https://travis-ci.org/mucommander/mucommander.svg)](https://travis-ci.org/mucommander/mucommander)
 [![Coverity Scan](https://scan.coverity.com/projects/3642/badge.svg)](https://scan.coverity.com/projects/3642)
@@ -65,7 +65,7 @@ The different distributions of muCommander are based on a shadow-jar, standalone
 
 The creation of a DMG file for MAC OS (produced in build/distributions):  
 ```
-./gradlew createDmg
+./gradlew dmg
 ```
 
 The creation of an EXE file for Windows (produced in build/launch4j):  
@@ -76,6 +76,11 @@ The creation of an EXE file for Windows (produced in build/launch4j):
 The creation of a TGZ file for Linux/Unix (produced in build/distributions):  
 ```
 ./gradlew tgz
+```
+
+The creation of an RPM file:  
+```
+./gradlew rpm
 ```
 
 More packaging options are described in [our wiki](https://github.com/mucommander/mucommander/wiki/Packaging).

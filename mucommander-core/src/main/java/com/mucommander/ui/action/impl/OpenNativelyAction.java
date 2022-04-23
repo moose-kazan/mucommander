@@ -26,13 +26,11 @@ import javax.swing.KeyStroke;
 import com.mucommander.commons.file.AbstractFile;
 import com.mucommander.commons.file.archive.AbstractArchiveEntryFile;
 import com.mucommander.commons.file.protocol.local.LocalFile;
-import com.mucommander.core.desktop.DesktopManager;
 import com.mucommander.job.impl.TempExecJob;
 import com.mucommander.text.Translator;
 import com.mucommander.ui.action.AbstractActionDescriptor;
 import com.mucommander.ui.action.ActionCategory;
 import com.mucommander.ui.action.ActionDescriptor;
-import com.mucommander.ui.action.ActionFactory;
 import com.mucommander.ui.action.MuAction;
 import com.mucommander.ui.dialog.InformationDialog;
 import com.mucommander.ui.dialog.file.ProgressDialog;
@@ -70,7 +68,7 @@ public class OpenNativelyAction extends MuAction {
                 OpenAction.openFile(getMainFrame(), selectedFile);
                 RecentExecutedFilesQL.addFile(selectedFile);
         	}
-            catch(IOException e) {
+            catch (IOException | UnsupportedOperationException e) {
                 InformationDialog.showErrorDialog(mainFrame);
             }
         }
@@ -81,13 +79,6 @@ public class OpenNativelyAction extends MuAction {
 		return new Descriptor();
 	}
 
-    public static class Factory implements ActionFactory {
-
-		public MuAction createAction(MainFrame mainFrame, Map<String,Object> properties) {
-			return new OpenNativelyAction(mainFrame, properties);
-		}
-    }
-    
     public static class Descriptor extends AbstractActionDescriptor {
     	public static final String ACTION_ID = "OpenNatively";
     	

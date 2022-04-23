@@ -14,13 +14,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 package com.mucommander.viewer;
 
 /**
- * This exception is thrown by {@link com.mucommander.ui.viewer.ViewerFactory} and
- * {@link com.mucommander.ui.viewer.EditorFactory} when the user should be warned about something before going ahead
- * with viewing/editing a file. {@link #getMessage()} contains the message to display to the user.
+ * This exception is thrown by {@link com.mucommander.ui.viewer.ViewerFactory}
+ * and {@link com.mucommander.ui.viewer.EditorFactory} when the user should be
+ * warned about something before going ahead with viewing/editing a file.
+ * {@link #getMessage()} contains the message to display to the user.
  *
  * @author Maxence Bernard
  */

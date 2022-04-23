@@ -1,3 +1,5 @@
+repositories.mavenCentral()
+
 dependencies {
     api project(':mucommander-core')
     api project(':mucommander-commons-file')
@@ -6,13 +8,11 @@ dependencies {
     api project(':mucommander-encoding')
     api project(":mucommander-preferences")
 
-    implementation 'org.slf4j:slf4j-api:1.7.30'
+    implementation 'org.slf4j:slf4j-api:1.7.32'
     implementation 'org.osgi:osgi.core:7.0.0'
 
     testImplementation 'org.testng:testng:6.11'
 }
-
-repositories.jcenter()
 
 jar {
    bnd ('Bundle-Name': 'muCommander-viewer-text',

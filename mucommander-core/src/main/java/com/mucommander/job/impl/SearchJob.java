@@ -20,6 +20,8 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -30,6 +32,7 @@ import org.slf4j.LoggerFactory;
 import com.mucommander.commons.file.AbstractFile;
 import com.mucommander.commons.file.protocol.search.SearchListener;
 import com.mucommander.commons.file.util.FileSet;
+import com.mucommander.commons.util.Pair;
 import com.mucommander.job.FileJob;
 import com.mucommander.job.FileJobState;
 import com.mucommander.ui.main.MainFrame;
@@ -46,7 +49,9 @@ public class SearchJob extends FileJob implements com.mucommander.commons.file.p
     private Predicate<AbstractFile> lsFilter;
     private List<AbstractFile> findings;
     private SearchListener listener;
-    private int depth;
+    private int depth, threads;
+
+    private ExecutorService customThreadPool;
 
     private static final SearchListener nullListener = () -> {};
 
@@ -59,6 +64,10 @@ public class SearchJob extends FileJob implements com.mucommander.commons.file.p
         this.depth = depth;
     }
 
+    public void setThreads(int threads) {
+        this.threads = threads;
+    }
+
     public void setFileMatcher(Predicate<AbstractFile> fileMatcher) {
         this.fileMatcher = fileMatcher;
     }
@@ -67,37 +76,41 @@ public class SearchJob extends FileJob implements com.mucommander.commons.file.p
         this.lsFilter = browseMatcher;
     }
 
-    private List<AbstractFile> search(List<AbstractFile> files, boolean subfolder) {
-        return files.parallelStream()
-                .filter(subfolder ? lsFilter : file -> true)
-                .map(this::search)
-                .flatMap(stream -> stream)
-                .collect(Collectors.toList());
-    }
-
-    private Stream<AbstractFile> search(AbstractFile file) {
-        AbstractFile[] children;
+    private Pair<List<AbstractFile>, Boolean> search(List<AbstractFile> files, boolean lsFilter) {
         try {
-            children = file.ls();
-        } catch (IOException e) {
-            LOGGER.debug("failed to list: " + file, e);
-            return Stream.empty();
+            List<AbstractFile> children = customThreadPool.submit(() -> ls(files, lsFilter)).get();
+            List<AbstractFile> matches = customThreadPool.submit(() -> match(children)).get();
+            boolean searchChanged = findings.addAll(matches);
+            return new Pair<>(children, searchChanged);
+        } catch (Exception e) {
+            return new Pair<>(Collections.emptyList(), false);
         }
-        if (getState() != FileJobState.INTERRUPTED)
-            examine(children);
-        return Stream.of(children);
     }
 
-    private void examine(AbstractFile[] files) {
-        if (files.length == 0)
-            return;
-        List<AbstractFile> passed = Stream.of(files)
-                .filter(fileMatcher)
-                .collect(Collectors.toList());
-        if (!passed.isEmpty()) {
-            findings.addAll(passed);
-            listener.searchChanged();
+    private List<AbstractFile> ls(List<AbstractFile> files, boolean filter) {
+        Stream<AbstractFile> stream = files.parallelStream();
+        if (filter)
+            stream = stream.filter(lsFilter);
+        return stream.map(this::ls).flatMap(s -> s).collect(Collectors.toList());
+    }
+
+    private List<AbstractFile> match(List<AbstractFile> files) {
+        return files.parallelStream().filter(this::match).collect(Collectors.toList());
+    }
+
+    private Stream<AbstractFile> ls(AbstractFile file) {
+        if (getState() != FileJobState.INTERRUPTED) {
+            try {
+                return Stream.of(file.ls());
+            } catch (IOException e) {
+                LOGGER.debug("failed to list: " + file, e);
+            }
         }
+        return Stream.empty();
+    }
+
+    private boolean match(AbstractFile file) {
+        return getState() != FileJobState.INTERRUPTED && fileMatcher.test(file);
     }
 
     public List<AbstractFile> getFindings() {
@@ -107,6 +120,8 @@ public class SearchJob extends FileJob implements com.mucommander.commons.file.p
     @Override
     public void interrupt() {
         setListener(null);
+        if (customThreadPool != null)
+            customThreadPool.shutdown();
         super.interrupt();
     }
 
@@ -122,12 +137,20 @@ public class SearchJob extends FileJob implements com.mucommander.commons.file.p
     @Override
     protected boolean processFile(AbstractFile file, Object recurseParams) {
         LOGGER.info("start searching {}", file);
-        List<AbstractFile> files = Collections.singletonList(file);
-        for (int i=0; getState() != FileJobState.INTERRUPTED && i<depth && !files.isEmpty(); i++) {
-            files = search(files, i > 0);
+        customThreadPool = threads > 0 ? new ForkJoinPool(threads) : new ForkJoinPool();
+        try {
+            List<AbstractFile> files = Collections.singletonList(file);
+            for (int i=0; getState() != FileJobState.INTERRUPTED && i<depth && !files.isEmpty(); i++) {
+                Pair<List<AbstractFile>, Boolean> result = search(files, i != 0);
+                files = result.first;
+                if (result.second)
+                    listener.searchChanged();
+            }
+        } finally {
+            LOGGER.info("completed searching {}", file);
+            listener = null;
+            customThreadPool.shutdown();
         }
-        LOGGER.info("completed searching {}", file);
-        listener = null;
         return true;
     }
 }

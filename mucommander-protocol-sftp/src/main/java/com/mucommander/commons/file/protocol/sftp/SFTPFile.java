@@ -19,7 +19,6 @@
 
 package com.mucommander.commons.file.protocol.sftp;
 
-import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -54,7 +53,6 @@ import com.mucommander.commons.file.protocol.ProtocolFile;
 import com.mucommander.commons.io.ByteCounter;
 import com.mucommander.commons.io.ByteUtils;
 import com.mucommander.commons.io.CounterOutputStream;
-import com.mucommander.commons.io.FilteredOutputStream;
 import com.mucommander.commons.io.RandomAccessInputStream;
 import com.mucommander.commons.io.RandomAccessOutputStream;
 
@@ -156,8 +154,7 @@ public class SFTPFile extends ProtocolFile {
     }
 
     private OutputStream getOutputStream(boolean append) throws IOException {
-        // Retrieve a ConnectionHandler and lock it
-        final SFTPConnectionHandler connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(connHandlerFactory, fileURL, true);
+        SFTPConnectionHandler connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(connHandlerFactory, fileURL, true);
         try {
             // Makes sure the connection is started, if not starts it
             connHandler.checkConnection();
@@ -180,27 +177,35 @@ public class SFTPFile extends ProtocolFile {
                 fileAttributes.setSize(0);
             }
 
-            return new CounterOutputStream(
-                    new SFTPOutputStream(outputStream, connHandler),
-                    new ByteCounter() {
-                        @Override
-                        public synchronized void add(long nbBytes) {
-                            fileAttributes.addToSize(nbBytes);
-                            fileAttributes.setDate(System.currentTimeMillis());
-                        }
+            return new OutputStream() {
+                @Override
+                public void write(int b) throws IOException {
+                    outputStream.write(b);
+                }
+                @Override
+                public void write(byte[] b) throws IOException {
+                    outputStream.write(b);
+                }
+                @Override
+                public void write(byte[] b, int off, int len) throws IOException {
+                    outputStream.write(b, off, len);
+                }
+                @Override
+                public void close() throws IOException {
+                    outputStream.close();
+                    try {
+                        connHandler.close();
+                    } catch (Exception e) {
+                        throw new IOException(e);
                     }
-                    );
-        }
-        catch(IOException e) {
-            // Release the lock on the ConnectionHandler if the OutputStream could not be created
-            connHandler.releaseLock();
-
-            // Re-throw IOException
-            throw e;
-        } catch (SftpException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-            return null;
+                }
+            };
+        } catch (Exception e) {
+            LOGGER.error("failed to get output stream for %s", getURL());
+            try {
+                connHandler.close();
+            } catch (Exception e1) {}
+            throw new IOException(e);
         }
     }
 
@@ -244,24 +249,16 @@ public class SFTPFile extends ProtocolFile {
 
     @Override
     public void changeDate(long lastModified) throws IOException, UnsupportedFileOperationException {
-        SFTPConnectionHandler connHandler = null;
-        try {
-            // Retrieve a ConnectionHandler and lock it
-            connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(connHandlerFactory, fileURL, true);
-
+        try (SFTPConnectionHandler connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(connHandlerFactory, fileURL, true)) {
             // Makes sure the connection is started, if not starts it
             connHandler.checkConnection();
 
             connHandler.channelSftp.setMtime(absPath, (int)(lastModified/1000));
             // Update local attribute copy
             fileAttributes.setDate(lastModified);
-        } catch (SftpException e) {
+        } catch (Exception e) {
             LOGGER.error("failed to change the modification date of " + absPath, e);
-        }
-        finally {
-            // Release the lock on the ConnectionHandler
-            if(connHandler!=null)
-                connHandler.releaseLock();
+            throw new IOException(e);
         }
     }
 
@@ -373,12 +370,7 @@ public class SFTPFile extends ProtocolFile {
 
     @Override
     public void delete() throws IOException {
-        // Retrieve a ConnectionHandler and lock it
-        SFTPConnectionHandler connHandler = null;
-        try {
-            // Retrieve a ConnectionHandler and lock it
-            connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(connHandlerFactory, fileURL, true);
-
+        try (SFTPConnectionHandler connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(connHandlerFactory, fileURL, true)) {
             // Makes sure the connection is started, if not starts it
             connHandler.checkConnection();
 
@@ -392,13 +384,8 @@ public class SFTPFile extends ProtocolFile {
             fileAttributes.setDirectory(false);
             fileAttributes.setSymlink(false);
             fileAttributes.setSize(0);
-        } catch (SftpException e) {
-            e.printStackTrace();
-        }
-        finally {
-            // Release the lock on the ConnectionHandler if the OutputStream could not be created
-            if(connHandler!=null)
-                connHandler.releaseLock();
+        } catch (Exception e) {
+            LOGGER.error("failed to delete %s", getURL());
         }
     }
 
@@ -406,21 +393,14 @@ public class SFTPFile extends ProtocolFile {
     @SuppressWarnings("unchecked")
     @Override
     public AbstractFile[] ls() throws IOException {
-        // Retrieve a ConnectionHandler and lock it
-        SFTPConnectionHandler connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(connHandlerFactory, fileURL, true);
         List<LsEntry> files = new ArrayList<LsEntry>();
-        try {
+        try (SFTPConnectionHandler connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(connHandlerFactory, fileURL, true)) {
             // Makes sure the connection is started, if not starts it
             connHandler.checkConnection();
 
             files = connHandler.channelSftp.ls(absPath);
-        } catch (SftpException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-        finally {
-            // Release the lock on the ConnectionHandler
-            connHandler.releaseLock();
+        } catch (Exception e) {
+            LOGGER.error("failed to ls %s", getURL());
         }
 
         int nbFiles = files.size();
@@ -463,9 +443,7 @@ public class SFTPFile extends ProtocolFile {
 
     @Override
     public void mkdir() throws IOException {
-        // Retrieve a ConnectionHandler and lock it
-        SFTPConnectionHandler connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(connHandlerFactory, fileURL, true);
-        try {
+        try (SFTPConnectionHandler connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(connHandlerFactory, fileURL, true)) {
             // Makes sure the connection is started, if not starts it
             connHandler.checkConnection();
 
@@ -476,13 +454,9 @@ public class SFTPFile extends ProtocolFile {
             fileAttributes.setDirectory(true);
             fileAttributes.setDate(System.currentTimeMillis());
             fileAttributes.setSize(0);
-        } catch (SftpException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-        finally {
-            // Release the lock on the ConnectionHandler
-            connHandler.releaseLock();
+        } catch (Exception e) {
+            LOGGER.error("failed to mkdir %s", getURL());
+            throw new IOException(e);
         }
     }
 
@@ -496,11 +470,7 @@ public class SFTPFile extends ProtocolFile {
         // Fail in situations where SFTPFile#renameTo() does not, for instance when the source and destination are the same.
         checkRenamePrerequisites(destFile, true, false);
 
-        // Retrieve a ConnectionHandler and lock it
-        SFTPConnectionHandler connHandler = null;
-        try {
-            connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(connHandlerFactory, fileURL, true);
-
+        try (SFTPConnectionHandler connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(connHandlerFactory, fileURL, true)) {
             // Makes sure the connection is started, if not starts it
             connHandler.checkConnection();
 
@@ -518,14 +488,8 @@ public class SFTPFile extends ProtocolFile {
             fileAttributes.setExists(false);
             fileAttributes.setDirectory(false);
             fileAttributes.setSize(0);
-        } catch (SftpException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-        finally {
-            // Release the lock on the ConnectionHandler
-            if(connHandler!=null)
-                connHandler.releaseLock();
+        } catch (Exception e) {
+            LOGGER.error("failed to rename %s", getURL());
         }
     }
 
@@ -590,50 +554,57 @@ public class SFTPFile extends ProtocolFile {
 
     @Override
     public void changePermissions(int permissions) throws IOException {
-        // Retrieve a ConnectionHandler and lock it
-        SFTPConnectionHandler connHandler = null;
-        try {
-            connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(connHandlerFactory, fileURL, true);
-
+        try (SFTPConnectionHandler connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(connHandlerFactory, fileURL, true)) {
             // Makes sure the connection is started, if not starts it
             connHandler.checkConnection();
 
             connHandler.channelSftp.chmod(permissions, absPath);
             // Update local attribute copy
             fileAttributes.setPermissions(new SimpleFilePermissions(permissions));
-        } catch (SftpException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-        finally {
-            // Release the lock on the ConnectionHandler
-            if(connHandler!=null)
-                connHandler.releaseLock();
+        } catch (Exception e) {
+            LOGGER.error("failed to change permissions %s", getURL());
+            throw new IOException(e);
         }
     }
 
     @Override
     public InputStream getInputStream(long offset) throws IOException {
-        // Retrieve a ConnectionHandler and lock it
-        final SFTPConnectionHandler connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(connHandlerFactory, fileURL, true);
+        SFTPConnectionHandler connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(connHandlerFactory, fileURL, true);
         try {
             // Makes sure the connection is started, if not starts it
             connHandler.checkConnection();
 
-            InputStream in = new SFTPInputStream(connHandler.channelSftp.get(absPath), connHandler);
+            InputStream in = connHandler.channelSftp.get(absPath);
             in.skip(offset);
-            return in;
-        }
-        catch(IOException e) {
-            // Release the lock on the ConnectionHandler if the InputStream could not be created
-            connHandler.releaseLock();
-
-            // Re-throw IOException
-            throw e;
-        } catch (SftpException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-            return null;
+            return new InputStream() {
+                @Override
+                public int read() throws IOException {
+                    return in.read();
+                }
+                @Override
+                public int read(byte[] b) throws IOException {
+                    return in.read(b);
+                }
+                @Override
+                public int read(byte[] b, int off, int len) throws IOException {
+                    return in.read(b, off, len);
+                }
+                @Override
+                public void close() throws IOException {
+                    in.close();
+                    try {
+                        connHandler.close();
+                    } catch (Exception e) {
+                        throw new IOException(e);
+                    }
+                }
+            };
+        } catch(Exception e) {
+            LOGGER.error("failed to get input stream %s", getURL());
+            try {
+                connHandler.close();
+            } catch (Exception e1) {}
+            throw new IOException(e);
         }
     }
 
@@ -644,11 +615,7 @@ public class SFTPFile extends ProtocolFile {
             if(canonicalPath!=null && (System.currentTimeMillis()-canonicalPathFetchedTime<attributeCachingPeriod))
                 return canonicalPath;
 
-            SFTPConnectionHandler connHandler = null;
-            try {
-                // Retrieve a ConnectionHandler and lock it
-                connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(connHandlerFactory, fileURL, true);
-
+            try (SFTPConnectionHandler connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(connHandlerFactory, fileURL, true)) {
                 // Makes sure the connection is started, if not starts it
                 connHandler.checkConnection();
 
@@ -669,17 +636,8 @@ public class SFTPFile extends ProtocolFile {
                 canonicalPath = canonicalURL.toString(false);
                 canonicalPathFetchedTime = System.currentTimeMillis();
                 return canonicalPath;
-            }
-            catch(IOException e) {
-                // Simply continue and return the absolute path
-            } catch (SftpException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
-            finally {
-                // Release the lock on the ConnectionHandler
-                if(connHandler!=null)
-                    connHandler.releaseLock();
+            } catch(Exception e) {
+                LOGGER.warn("failed to get canonical path of symlink %s", getURL());
             }
         }
 
@@ -739,11 +697,7 @@ public class SFTPFile extends ProtocolFile {
         }
 
         private void fetchAttributes() throws AuthException {
-            SFTPConnectionHandler connHandler = null;
-            try {
-                // Retrieve a ConnectionHandler and lock it
-                connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(SFTPFile.connHandlerFactory, url, true);
-
+            try (SFTPConnectionHandler connHandler = (SFTPConnectionHandler)ConnectionPool.getConnectionHandler(SFTPFile.connHandlerFactory, url, true)) {
                 // Makes sure the connection is started, if not starts it
                 connHandler.checkConnection();
 
@@ -763,17 +717,12 @@ public class SFTPFile extends ProtocolFile {
                 else
                     LOGGER.error("failed to get attributes of " + url.getPath(), e);
 
-            } catch(IOException e) {
+            } catch(Exception e) {
                 // Rethrow AuthException
                 if (e instanceof AuthException)
                     throw (AuthException)e;
                 else
                     LOGGER.error("failed to get attributes of " + url.getPath(), e);
-            }
-            finally {
-                // Release the lock on the ConnectionHandler
-                if(connHandler!=null)
-                    connHandler.releaseLock();
             }
         }
 
@@ -892,38 +841,6 @@ public class SFTPFile extends ProtocolFile {
         @Override
         public void close() throws IOException {
             in.close();
-        }
-    }
-
-    private class SFTPInputStream extends FilterInputStream {
-
-        private SFTPConnectionHandler connHandler;
-
-        protected SFTPInputStream(InputStream in, SFTPConnectionHandler connHandler) {
-            super(in);
-            this.connHandler = connHandler;
-        }
-
-        @Override
-        public void close() throws IOException {
-            super.close();
-            connHandler.releaseLock();
-        }
-    }
-
-    private class SFTPOutputStream extends FilteredOutputStream {
-
-        private SFTPConnectionHandler connHandler;
-
-        protected SFTPOutputStream(OutputStream out, SFTPConnectionHandler connHandler) {
-            super(out);
-            this.connHandler = connHandler;
-        }
-
-        @Override
-        public void close() throws IOException {
-            super.close();
-            connHandler.releaseLock();
         }
     }
 }

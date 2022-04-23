@@ -3,7 +3,7 @@ buildscript {
     mavenCentral()
   }
   dependencies {
-    classpath 'biz.aQute.bnd:biz.aQute.bnd.gradle:4.3.0'
+    classpath 'biz.aQute.bnd:biz.aQute.bnd.gradle:6.1.0'
   }
 }
 
@@ -11,15 +11,17 @@ plugins {
     id 'com.athaydes.osgi-run' version '1.6.0'
     id 'java'
     id 'org.ajoberstar.grgit' version '3.1.1'
-    id 'nebula.ospackage' version '8.5.6'
     id 'com.github.johnrengelman.shadow' version '5.1.0'
-    id 'edu.sc.seis.macAppBundle' version '2.3.0'
     id 'edu.sc.seis.launch4j' version '2.4.6'
 }
 
 allprojects {
+    tasks.withType(JavaCompile).configureEach {
+        options.fork = true
+    }
+
     group = 'org.mucommander'
-    version = '0.9.8'
+    version = '1.0.1'
     ext.release = 'snapshot'
     configurations {
         compileOnly.extendsFrom comprise
@@ -39,7 +41,6 @@ compileTestJava.options.encoding = 'UTF-8'
 compileJava.options.compilerArgs += ['--release', '8']
 
 repositories {
-    jcenter()
     mavenCentral()
 }
 
@@ -75,6 +76,7 @@ dependencies {
     osgiRuntime project('mucommander-format-tar')
     osgiRuntime project('mucommander-format-bzip2')
     osgiRuntime project('mucommander-format-gzip')
+    osgiRuntime project('mucommander-format-xz')
     osgiRuntime project('mucommander-format-iso')
     osgiRuntime project('mucommander-format-lst')
     osgiRuntime project('mucommander-archiver')
@@ -118,6 +120,7 @@ runOsgi {
     if (port) {
         javaArgs += ' -Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=' + port
     }
+    javaArgs += ' --add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-exports java.desktop/com.apple.eawt=ALL-UNNAMED --add-exports java.desktop/com.apple.laf=ALL-UNNAMED  --add-exports java.desktop/com.apple.eio=ALL-UNNAMED'
     configSettings = 'felix'
     osgiMain = project(':')
     config += [
@@ -179,159 +182,6 @@ test.useTestNG()
 
 import org.apache.tools.ant.filters.ReplaceTokens
 
-ospackage {
-    release = project.ext.release
-
-    postInstall file('package/unix/postinst')
-    postUninstall file('package/unix/postrm')
-
-    maintainer = 'Arik Hadas <arik.hadas1@gmail.com>'
-    summary = 'a lightweight, cross-platform file manager'
-
-    from ('package') { include 'license.txt', 'readme.txt' }
-    from ('package/unix/mucommander.sh') {
-        filter(ReplaceTokens, tokens: [MU_VERSION: project.version])
-    }
-    into '/usr/share/mucommander'
-
-    from ("$buildDir/osgi/") {
-        include '*.jar'
-        into '/usr/share/mucommander'
-    }
-    from ("$buildDir/osgi/bundle") {
-        include '*.jar'
-        exclude 'osgiaas*'
-        exclude 'jline*'
-        exclude 'mucommander-os-macos*'
-        exclude 'mucommander-os-openvms*'
-        exclude 'mucommander-os-win*'
-        into '/usr/share/mucommander/bundle'
-    }
-    from ("$buildDir/osgi/app") {
-        include '*.jar'
-        into '/usr/share/mucommander/app'
-    }
-    from ("$buildDir/osgi/conf") {
-        include '*'
-        into '/usr/share/mucommander/conf'
-    }
-    from ('mucommander-core/src/main/resources/images/mucommander') {
-        include 'icon128_24.png'
-        rename 'icon128_24.png', 'mucommander.png'
-        addParentDirs false
-        into '/usr/share/pixmaps'
-    }
-    from ('package/unix') {
-        include 'mucommander.desktop'
-        addParentDirs false
-        into '/usr/share/applications'
-    }
-
-    directory('/usr/share/mucommander/felix-cache')
-}
-
-// RPM packaging
-buildRpm {
-    dependsOn createBundlesDir
-    requires('java')
-    os = LINUX
-}
-
-// Debian packaging
-buildDeb {
-    dependsOn createBundlesDir
-    suggests('openjdk-11-jre')
-    recommends('java-virtual-machine')
-}
-
-macAppBundle {
-    appName = "muCommander"
-    dmgName = 'mucommander-'+project.version+'-'+project.ext.release
-    mainClassName = "com.mucommander.main.muCommander"
-    appStyle = "Oracle"
-    bundleJRE = true
-    jreHome = "jre/macOS/Contents/Home"
-    bundleIdentifier = "com.mucommander.muCommander"
-    jvmVersion = "1.6+"
-    icon = "package/osx/icon.icns"
-    bundleAllowMixedLocalizations = "true"
-    bundleExtras.put("NSHighResolutionCapable", "true")
-    bundleExtras.put("NSSupportsAutomaticGraphicsSwitching", "true")
-    backgroundImage = "package/osx/bg.gif"
-    backgroundImageWidth = 450
-    backgroundImageHeight = 475
-    appIconX = 225
-    appIconY = 75
-    appFolderX = 225
-    appFolderY = 350
-    backgroundScript = """
-    tell application "Finder"
-      tell disk "\${VOL_NAME}"
-           open
-           set current view of container window to icon view
-           set toolbar visible of container window to false
-           set statusbar visible of container window to false
-           set the bounds of container window to { 0, 0, \${IMAGE_WIDTH}, \${IMAGE_HEIGHT} }
-           set the position of the container window to {400, 100}
-           set viewOptions to the icon view options of container window
-           set arrangement of viewOptions to not arranged
-           set icon size of viewOptions to 72
-           set background picture of viewOptions to file ".background:\${DMG_BACKGROUND_IMG}"
-           set extension hidden of item "change_jre.command" of container window to true
-           set extension hidden of item "license.txt" of container window to true
-           set extension hidden of item "readme.txt" of container window to true
-           set position of item "\${APP_NAME}.app" of container window to { \${APPICONX}, \${APPICONY} }
-           set position of item "Applications" of container window to { \${APPFOLDERX}, \${APPFOLDERY} }
-           set position of item "license.txt" of container window to { 75, 75 }
-           set position of item "readme.txt" of container window to { 375, 75 }
-           set position of item "change_jre.command" of container window to { 375, 350 }
-           close
-           open
-           update without registering applications
-           delay 2
-      end tell
-    end tell
-    """
-
-    runtimeConfigurationName = 'shadow'
-    jarTask = 'shadowJar'
-
-    //javaProperties.put("java.system.class.loader", "com.mucommander.commons.file.AbstractFileClassLoader")
-    javaProperties.put("com.apple.smallTabs", "true")
-    javaProperties.put("com.apple.hwaccel", "true")
-    javaProperties.put("apple.laf.useScreenMenuBar", "true")
-    javaProperties.put("file.encoding", "UTF-8")
-}
-
-copyToResourcesJava.dependsOn createBundlesDir
-copyToResourcesJava.doLast {
-    copy {
-        from "build/osgi"
-        include 'app/**'
-        include 'bundle/**'
-        include 'conf/**'
-        exclude 'bundle/osgiaas*'
-        exclude 'bundle/jline*'
-        exclude 'bundle/mucommander-os-linux*'
-        exclude 'bundle/mucommander-os-openvms*'
-        exclude 'bundle/mucommander-os-win*'
-        into project.file("${->project.buildDir}/${->project.macAppBundle.appOutputDir}/${->project.macAppBundle.appName}.app/Contents/${->project.macAppBundle.jarSubdir}")
-    }
-}
-
-task copyInfoToAppOutputDir(type: Copy) {
-    from "package"
-    include "license.txt"
-    include "readme.txt"
-    into "${->project.buildDir}/${->project.macAppBundle.appOutputDir}/"
-}
-copyInfoToAppOutputDir.doFirst {
-    from "package/osx"
-    include "change_jre.command"
-    into "${->project.buildDir}/${->project.macAppBundle.appOutputDir}/"
-}
-createDmg.dependsOn copyInfoToAppOutputDir
-
 launch4j {
     icon = "$projectDir/package/windows/mucommander.ico"
     mainClassName = "com.mucommander.main.muCommander"
@@ -349,55 +199,6 @@ launch4j {
         bundledJreAsFallback = true
     }
     outfile = "mucommander.exe"
-}
-
-// Windows installer
-task nsis(type: Copy, dependsOn: [createExe, createBundlesDir]) {
-    from("$buildDir/launch4j/") {
-        include 'mucommander.exe'
-    }
-    if (project.ext.bundleJRE) {
-        from('jre/win') {
-            into "jre"
-        }
-    }
-    from("$buildDir/osgi/") {
-        include '*.jar'
-    }
-    from('package/windows') {
-        include 'mucommander.ico'
-    }
-    from('package/windows') {
-        include project.ext.bundleJRE ? 'mucommander-bundled.nsi' : 'mucommander.nsi'
-        filter(ReplaceTokens, tokens: [MU_VERSION: project.version,
-                                       MU_ICON: 'mucommander.ico',
-                                       MU_LICENSE: 'license.txt',
-                                       MU_README: 'readme.txt',
-                                       MU_OUT: 'mucommander-'+project.version+'-'+project.ext.release+'-setup.exe',
-                                       MU_EXE: 'mucommander.exe',
-                                       MU_JAR: project.tasks.shadowJar.archiveFileName.get()])
-    }
-    from ('package') {
-        include 'license.txt', 'readme.txt'
-    }
-    from("$buildDir/osgi/app") {
-        include '*.jar'
-        into "app"
-    }
-    from("$buildDir/osgi/bundle") {
-        include '*.jar'
-        exclude 'osgiaas*'
-        exclude 'jline*'
-        exclude 'mucommander-os-linux*'
-        exclude 'mucommander-os-macos*'
-        exclude 'mucommander-os-openvms*'
-        into "bundle"
-    }
-    from("$buildDir/osgi/conf") {
-        include '*'
-        into "conf"
-    }
-    into "$buildDir/tmp/nsis"
 }
 
 // Portable packaging
@@ -507,5 +308,154 @@ task(afterEclipseImport).doLast {
     f.append('encoding//src/main/resources/dictionary_ua.properties=UTF-8\n')
     f.append('encoding//src/main/resources/dictionary_zh_CN.properties=UTF-8\n')
     f.append('encoding//src/main/resources/dictionary_zh_TW.properties=UTF-8\n')
+}
+
+task macAppImage(dependsOn: 'createBundlesDir', type: Exec) {
+    workingDir "${projectDir}"
+    commandLine 'jpackage', \
+                '--input', 'build/osgi/', \
+                '--name', 'muCommander', \
+                '--app-version', project.version, \
+                '--icon', 'package/osx/icon.icns', \
+                '--main-jar', 'mucommander-'+project.version+'.jar', \
+                '--main-class', 'com.mucommander.main.muCommander', \
+                '--runtime-image', 'jre/macOS', \
+                '--java-options', '--add-exports java.desktop/com.apple.laf=ALL-UNNAMED --add-exports java.desktop/com.apple.eio=ALL-UNNAMED --add-exports java.desktop/com.apple.eawt=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.transaction.xa/javax.transaction.xa=ALL-UNNAMED --add-opens java.management/javax.management=ALL-UNNAMED --add-opens java.rmi/java.rmi=ALL-UNNAMED --add-opens java.security.jgss/org.ietf.jgss=ALL-UNNAMED --add-opens java.sql/java.sql=ALL-UNNAMED --add-opens java.base/sun.net.www.protocol.http=ALL-UNNAMED --add-opens java.base/sun.net.www.protocol.https=ALL-UNNAMED', \
+                '--mac-package-identifier', 'com.mucommander.muCommander', \
+                '--type', 'app-image', \
+                '--dest', "${buildDir}"
+    doLast {
+       copy {
+          from "package"
+          include "license.txt"
+          include "readme.txt"
+          into "${buildDir}/muCommander.app/Contents"
+       }
+       delete("${buildDir}/muCommander.app/Contents/app/run.bat")
+       delete("${buildDir}/muCommander.app/Contents/app/run.sh")
+       delete("${buildDir}/muCommander.app/Contents/app/system-libs")
+       delete fileTree(dir: "${buildDir}/muCommander.app/Contents/app/bundle/", include: 'osgiaas*')
+       delete fileTree(dir: "${buildDir}/muCommander.app/Contents/app/bundle/", include: 'jline*')
+       delete fileTree(dir: "${buildDir}/muCommander.app/Contents/app/bundle/", include: 'mucommander-os-linux*')
+       delete fileTree(dir: "${buildDir}/muCommander.app/Contents/app/bundle/", include: 'mucommander-os-win*')
+       delete fileTree(dir: "${buildDir}/muCommander.app/Contents/app/bundle/", include: 'mucommander-os-openvms*')
+       exec {
+          executable "package/osx/muCommander-post-image.sh"
+       }
+    }
+}
+
+task dmg(dependsOn: 'macAppImage', type: Exec) {
+    workingDir "${projectDir}"
+    commandLine 'jpackage', \
+                '--app-image', "${buildDir}/muCommander.app", \
+                '--app-version', project.version, \
+                '--license-file', 'package/license.txt', \
+                '--about-url', 'https://www.mucommander.com', \
+                '--dest', "${buildDir}/distributions"
+}
+
+task linuxAppImage(dependsOn: 'createBundlesDir', type: Exec) {
+    workingDir "${projectDir}"
+    commandLine 'jpackage', \
+                '--input', 'build/osgi/', \
+                '--name', 'muCommander', \
+                '--app-version', project.version, \
+                '--main-jar', 'mucommander-'+project.version+'.jar', \
+                '--main-class', 'com.mucommander.main.muCommander', \
+                '--java-options', '--add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.transaction.xa/javax.transaction.xa=ALL-UNNAMED --add-opens java.management/javax.management=ALL-UNNAMED --add-opens java.rmi/java.rmi=ALL-UNNAMED --add-opens java.security.jgss/org.ietf.jgss=ALL-UNNAMED --add-opens java.sql/java.sql=ALL-UNNAMED --add-opens java.base/sun.net.www.protocol.http=ALL-UNNAMED --add-opens java.base/sun.net.www.protocol.https=ALL-UNNAMED', \
+                '--type', 'app-image', \
+                '--runtime-image', 'jre/linux', \
+                '--dest', "${buildDir}"
+    doLast {
+        copy {
+           from "package"
+           include "license.txt"
+           include "readme.txt"
+           into "${buildDir}/muCommander/lib/app"
+        }
+        delete fileTree(dir: "${buildDir}/muCommander/lib/app/bundle/", include: 'osgiaas*')
+        delete fileTree(dir: "${buildDir}/muCommander/lib/app/bundle/", include: 'jline*')
+        delete("${buildDir}/muCommander/lib/app/run.bat")
+        delete("${buildDir}/muCommander/lib/app/run.sh")
+        delete("${buildDir}/muCommander/lib/app/system-libs")
+    }
+}
+
+task rpm(dependsOn: 'linuxAppImage', type: Exec) {
+    workingDir "${projectDir}"
+    commandLine 'jpackage', \
+                '--type', 'rpm', \
+                '--app-image', "${buildDir}/muCommander", \
+                '--app-version', project.version, \
+                '--license-file', 'package/license.txt', \
+                '--about-url', 'https://www.mucommander.com', \
+                '--dest', "${buildDir}/distributions", \
+                '--icon', 'mucommander-core/src/main/resources/images/mucommander/icon128_24.png', \
+                '--linux-app-category', 'Application;FileManager;Utility;'
+}
+
+
+task deb(dependsOn: 'linuxAppImage', type: Exec) {
+    workingDir "${projectDir}"
+    commandLine 'jpackage', \
+                '--type', 'deb', \
+                '--description', 'a lightweight, cross-platform file manager', \
+                '--app-image', "${buildDir}/muCommander", \
+                '--app-version', project.version, \
+                '--license-file', 'package/license.txt', \
+                '--about-url', 'https://www.mucommander.com', \
+                '--dest', "${buildDir}/distributions", \
+                '--icon', 'mucommander-core/src/main/resources/images/mucommander/icon128_24.png', \
+                '--linux-deb-maintainer', 'arik.hadas1@gmail.com', \
+                '--linux-app-category', 'utils', \
+                '--linux-shortcut', \
+                '--linux-menu-group', 'Application;FileManager;Utility;'
+}
+
+task winAppImage(dependsOn: 'createBundlesDir', type: Exec) {
+    workingDir "${projectDir}"
+    commandLine 'jpackage', \
+                '--input', "${buildDir}/osgi/", \
+                '--name', 'muCommander', \
+                '--app-version', project.version, \
+                '--main-jar', 'mucommander-'+project.version+'.jar', \
+                '--main-class', 'com.mucommander.main.muCommander', \
+                '--java-options', '--add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.transaction.xa/javax.transaction.xa=ALL-UNNAMED --add-opens java.management/javax.management=ALL-UNNAMED --add-opens java.rmi/java.rmi=ALL-UNNAMED --add-opens java.security.jgss/org.ietf.jgss=ALL-UNNAMED --add-opens java.sql/java.sql=ALL-UNNAMED --add-opens java.base/sun.net.www.protocol.http=ALL-UNNAMED --add-opens java.base/sun.net.www.protocol.https=ALL-UNNAMED', \
+                '--type', 'app-image', \
+                '--runtime-image', 'jre/win', \
+                '--dest', "${buildDir}", \
+                '--resource-dir', 'package/windows/'
+    doLast {
+        copy {
+           from "package"
+           include "license.txt"
+           include "readme.txt"
+           into "${buildDir}/muCommander/"
+        }
+        delete("${buildDir}/muCommander/app/run.bat")
+        delete("${buildDir}/muCommander/app/run.sh")
+        delete("${buildDir}/muCommander/app/system-libs")
+        delete fileTree(dir: "${buildDir}/muCommander/app/bundle/", include: 'osgiaas*')
+        delete fileTree(dir: "${buildDir}/muCommander/app/bundle/", include: 'jline*')
+        delete fileTree(dir: "${buildDir}/muCommander/app/bundle/", include: 'mucommander-os-linux*')
+        delete fileTree(dir: "${buildDir}/muCommander/app/bundle/", include: 'mucommander-os-macos*')
+        delete fileTree(dir: "${buildDir}/muCommander/app/bundle/", include: 'mucommander-os-openvms*')
+    }
+}
+
+task msi(dependsOn: 'winAppImage', type: Exec) {
+    workingDir "${projectDir}"
+    commandLine 'jpackage', \
+                '--type', 'msi', \
+                '--app-image', "${buildDir}/muCommander", \
+                '--license-file', "${buildDir}/muCommander/license.txt", \
+                '--app-version', project.version, \
+                '--about-url', 'https://www.mucommander.com', \
+                '--dest', "${buildDir}/distributions", \
+                '--win-menu', \
+                '--win-shortcut', \
+                '--win-shortcut-prompt', \
+                '--win-dir-chooser'
 }
 

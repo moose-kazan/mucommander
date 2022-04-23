@@ -1,3 +1,6 @@
+// In this section you declare where to find the dependencies of your project
+repositories.mavenCentral()
+
 configurations {
     library.extendsFrom compileOnly
 }
@@ -6,13 +9,10 @@ dependencies {
     api project(':mucommander-commons-file')
     implementation 'org.osgi:osgi.core:7.0.0'
     implementation 'org.apache.commons:commons-vfs2:2.3'
-    implementation 'com.github.junrar:junrar:4.0.0'
+    implementation 'com.github.junrar:junrar:7.5.0'
 
     testImplementation 'org.testng:testng:6.11'
 }
-
-// In this section you declare where to find the dependencies of your project
-repositories.jcenter()
 
 jar {
    from { configurations.library.collect { it.isDirectory() ? it : zipTree(it) } }

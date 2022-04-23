@@ -121,7 +121,7 @@ public class FileFactory {
     static {
         // Register built-in file protocols.
         registerProtocol(LocalFile.SCHEMA, new LocalProtocolProvider());
-        registerProtocol(SearchFile.SCHEMA, new SearchProtocolProvider());
+        registerProtocol(SearchFile.SCHEMA, new SearchProtocolProvider(), false);
 
         // Set the default FileIconProvider instance
         defaultFileIconProvider = new SwingFileIconProvider();
@@ -159,10 +159,18 @@ public class FileFactory {
      * @return          the previously registered protocol provider if any, <code>null</code> otherwise.
      */
     public static ProtocolProvider registerProtocol(String protocol, ProtocolProvider provider) {
+        return registerProtocol(protocol, provider, true);
+    }
+
+    /**
+     * @param cache - whether or not to cache instantiated files using a {@link FilePool}
+     */
+    private static ProtocolProvider registerProtocol(String protocol, ProtocolProvider provider, boolean cache) {
         protocol = protocol.toLowerCase();
 
-        // Create raw and archive file pools
-        FILE_POOL_MAP.put(protocol, new FilePool());
+        if (cache)
+            // Create raw and archive file pools
+            FILE_POOL_MAP.put(protocol, new FilePool());
 
         // Special case for local file provider.
         // Note that the local file provider is also added to the provider hashtable.
@@ -313,7 +321,8 @@ public class FileFactory {
     /**
      * Returns an instance of AbstractFile for the given absolute path.
      *
-     * <p>This method does not throw any IOException but returns <code>null</code> if the file could not be created.</p>
+     * <p>If throwException is set to false, this method does not throw any IOException. Instead, it returns <code>null</code> if the 
+     * file could not be created.</p>
      *
      * @param absPath the absolute path to the file
      * @param throwException if set to <code>true</code>, an IOException will be thrown if something went wrong during file creation
@@ -431,7 +440,9 @@ public class FileFactory {
         // If there are instantiationParams (the file was created by the AbstractFile implementation directly, that is
         // by ls()), any existing file in the pool must be replaced with a new, more up-to-date one.
         FilePool filePool = FILE_POOL_MAP.get(fileURL.getScheme().toLowerCase());
-        if(instantiationParams.isEmpty()) {
+        if (filePool == null)
+            filePool = new FilePool();
+        if (instantiationParams.isEmpty()) {
             // Note: FileURL#equals(Object) and #hashCode() take into account credentials and properties and are
             // trailing slash insensitive (e.g. '/root' and '/root/' URLS are one and the same)
             AbstractFile file = filePool.get(fileURL);
